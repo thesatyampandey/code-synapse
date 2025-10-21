@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal } from "lucide-react";
+import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -18,6 +19,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface File {
   id: string;
@@ -25,6 +42,22 @@ interface File {
   content: string;
   language: string;
 }
+
+const LANGUAGE_OPTIONS = [
+  { value: "typescript", label: "TypeScript", ext: ".ts" },
+  { value: "javascript", label: "JavaScript", ext: ".js" },
+  { value: "python", label: "Python", ext: ".py" },
+  { value: "java", label: "Java", ext: ".java" },
+  { value: "cpp", label: "C++", ext: ".cpp" },
+  { value: "c", label: "C", ext: ".c" },
+  { value: "html", label: "HTML", ext: ".html" },
+  { value: "css", label: "CSS", ext: ".css" },
+  { value: "json", label: "JSON", ext: ".json" },
+  { value: "markdown", label: "Markdown", ext: ".md" },
+  { value: "sql", label: "SQL", ext: ".sql" },
+  { value: "rust", label: "Rust", ext: ".rs" },
+  { value: "go", label: "Go", ext: ".go" },
+];
 
 interface Message {
   id: string;
@@ -46,6 +79,9 @@ const Room = () => {
   const [username] = useState(`User${Math.floor(Math.random() * 1000)}`);
   const [output, setOutput] = useState<string>("");
   const [showOutput, setShowOutput] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+  const [newFileLanguage, setNewFileLanguage] = useState("typescript");
+  const [showNewFileDialog, setShowNewFileDialog] = useState(false);
 
   useEffect(() => {
     if (!roomId) {
@@ -70,14 +106,39 @@ const Room = () => {
   };
 
   const addNewFile = () => {
+    setShowNewFileDialog(true);
+  };
+
+  const createNewFile = () => {
+    if (!newFileName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a file name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedLang = LANGUAGE_OPTIONS.find(l => l.value === newFileLanguage);
+    const extension = selectedLang?.ext || ".txt";
+    const fileName = newFileName.includes(".") ? newFileName : `${newFileName}${extension}`;
+
     const newFile: File = {
       id: Date.now().toString(),
-      name: `untitled-${files.length + 1}.tsx`,
-      content: "// New file\n",
-      language: "typescript"
+      name: fileName,
+      content: `// New ${selectedLang?.label || "file"}\n`,
+      language: newFileLanguage
     };
+    
     setFiles([...files, newFile]);
     setActiveFileId(newFile.id);
+    setShowNewFileDialog(false);
+    setNewFileName("");
+    
+    toast({
+      title: "File created",
+      description: `${fileName} has been created`,
+    });
   };
 
   const closeFile = (fileId: string) => {
@@ -148,6 +209,12 @@ const Room = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
             <span className="text-xs text-muted-foreground">1 user</span>
           </div>
+          <Link to="/profile">
+            <Button variant="ghost" size="sm">
+              <User className="h-4 w-4 mr-1" />
+              Profile
+            </Button>
+          </Link>
           <Link to="/">
             <Button variant="ghost" size="sm">
               <Home className="h-4 w-4 mr-1" />
@@ -194,9 +261,54 @@ const Room = () => {
         <div className="w-64 bg-panel-bg border-r border-border flex flex-col">
           <div className="h-10 border-b border-border flex items-center justify-between px-3">
             <span className="text-xs font-medium text-muted-foreground uppercase">Explorer</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={addNewFile}>
-              <Plus className="h-4 w-4" />
-            </Button>
+            <Dialog open={showNewFileDialog} onOpenChange={setShowNewFileDialog}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-card border-border">
+                <DialogHeader>
+                  <DialogTitle>Create New File</DialogTitle>
+                  <DialogDescription className="text-muted-foreground">
+                    Choose a filename and language for your new file
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="filename">File Name</Label>
+                    <Input
+                      id="filename"
+                      placeholder="e.g., main or app.js"
+                      value={newFileName}
+                      onChange={(e) => setNewFileName(e.target.value)}
+                      className="bg-input border-border"
+                      onKeyPress={(e) => e.key === 'Enter' && createNewFile()}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Language</Label>
+                    <Select value={newFileLanguage} onValueChange={setNewFileLanguage}>
+                      <SelectTrigger className="bg-input border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border">
+                        {LANGUAGE_OPTIONS.map((lang) => (
+                          <SelectItem key={lang.value} value={lang.value}>
+                            {lang.label} ({lang.ext})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={createNewFile} className="bg-primary hover:bg-primary/90">
+                    Create File
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2">
