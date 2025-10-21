@@ -1,12 +1,23 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code2, MessageSquare, Users, FileCode, Plus, X, Send } from "lucide-react";
+import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface File {
   id: string;
@@ -33,6 +44,8 @@ const Room = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState("");
   const [username] = useState(`User${Math.floor(Math.random() * 1000)}`);
+  const [output, setOutput] = useState<string>("");
+  const [showOutput, setShowOutput] = useState(false);
 
   useEffect(() => {
     if (!roomId) {
@@ -90,6 +103,37 @@ const Room = () => {
     setMessageInput("");
   };
 
+  const runCode = () => {
+    setShowOutput(true);
+    try {
+      // Simple mock compiler - in production, this would send to a backend
+      const code = activeFile?.content || "";
+      
+      // For demo purposes, we'll simulate output
+      setOutput(`Compiling ${activeFile?.name}...\n\n✓ Compilation successful!\n\nOutput:\nCode executed successfully.\n\n[Note: This is a demo compiler. In production, code would be executed in a secure sandbox environment.]`);
+      
+      toast({
+        title: "Code compiled",
+        description: "Check the output panel below",
+      });
+    } catch (error) {
+      setOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast({
+        title: "Compilation error",
+        description: "Check the output panel for details",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const leaveRoom = () => {
+    navigate("/");
+    toast({
+      title: "Left room",
+      description: "You have left the collaboration session",
+    });
+  };
+
   return (
     <div className="h-screen flex flex-col bg-background dark">
       {/* Top Bar */}
@@ -99,9 +143,39 @@ const Room = () => {
           <span className="font-semibold text-foreground">CodeSync</span>
           <span className="text-xs text-muted-foreground">Room: {roomId}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">1 user</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 mr-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">1 user</span>
+          </div>
+          <Link to="/">
+            <Button variant="ghost" size="sm">
+              <Home className="h-4 w-4 mr-1" />
+              Home
+            </Button>
+          </Link>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <LogOut className="h-4 w-4 mr-1" />
+                Leave Room
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="bg-card border-border">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave this room?</AlertDialogTitle>
+                <AlertDialogDescription className="text-muted-foreground">
+                  You will exit the collaboration session. Your code changes may not be saved.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={leaveRoom} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Leave Room
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -146,53 +220,87 @@ const Room = () => {
 
         {/* Editor Area */}
         <div className="flex-1 flex flex-col">
-          {/* Tabs */}
-          <div className="h-10 bg-editor-bg border-b border-border flex items-center overflow-x-auto">
-            {files.map(file => (
-              <div
-                key={file.id}
-                className={`h-full px-4 flex items-center gap-2 border-r border-border cursor-pointer transition-smooth ${
-                  activeFileId === file.id
-                    ? 'bg-panel-bg text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/30'
-                }`}
-                onClick={() => setActiveFileId(file.id)}
-              >
-                <span className="text-sm">{file.name}</span>
-                {files.length > 1 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      closeFile(file.id);
-                    }}
-                    className="hover:bg-muted rounded p-0.5"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            ))}
+          {/* Tabs with Run Button */}
+          <div className="h-10 bg-editor-bg border-b border-border flex items-center justify-between">
+            <div className="flex items-center overflow-x-auto">
+              {files.map(file => (
+                <div
+                  key={file.id}
+                  className={`h-full px-4 flex items-center gap-2 border-r border-border cursor-pointer transition-smooth ${
+                    activeFileId === file.id
+                      ? 'bg-panel-bg text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/30'
+                  }`}
+                  onClick={() => setActiveFileId(file.id)}
+                >
+                  <span className="text-sm">{file.name}</span>
+                  {files.length > 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeFile(file.id);
+                      }}
+                      className="hover:bg-muted rounded p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center px-2">
+              <Button onClick={runCode} size="sm" className="bg-primary hover:bg-primary/90">
+                <Play className="h-4 w-4 mr-1" />
+                Run Code
+              </Button>
+            </div>
           </div>
 
-          {/* Monaco Editor */}
-          <div className="flex-1">
-            <Editor
-              height="100%"
-              language={activeFile?.language || "typescript"}
-              value={activeFile?.content || ""}
-              onChange={handleEditorChange}
-              theme="vs-dark"
-              options={{
-                fontSize: 14,
-                fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                smoothScrolling: true,
-                cursorBlinking: "smooth",
-                cursorSmoothCaretAnimation: "on",
-                padding: { top: 16 },
-              }}
-            />
+          {/* Monaco Editor & Output Panel */}
+          <div className="flex-1 flex flex-col">
+            <div className={showOutput ? "h-2/3" : "flex-1"}>
+              <Editor
+                height="100%"
+                language={activeFile?.language || "typescript"}
+                value={activeFile?.content || ""}
+                onChange={handleEditorChange}
+                theme="vs-dark"
+                options={{
+                  fontSize: 14,
+                  fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  smoothScrolling: true,
+                  cursorBlinking: "smooth",
+                  cursorSmoothCaretAnimation: "on",
+                  padding: { top: 16 },
+                }}
+              />
+            </div>
+
+            {/* Output Panel */}
+            {showOutput && (
+              <div className="h-1/3 border-t border-border bg-editor-bg flex flex-col">
+                <div className="h-10 border-b border-border flex items-center justify-between px-4">
+                  <div className="flex items-center gap-2">
+                    <Terminal className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Output</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowOutput(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <ScrollArea className="flex-1 p-4">
+                  <pre className="text-sm text-foreground font-mono whitespace-pre-wrap">
+                    {output || "Run your code to see output here..."}
+                  </pre>
+                </ScrollArea>
+              </div>
+            )}
           </div>
         </div>
 

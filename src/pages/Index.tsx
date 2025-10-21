@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Users, Zap, MessageSquare, ArrowRight } from "lucide-react";
+import { Code2, Users, Zap, MessageSquare, ArrowRight, Info } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 
@@ -35,6 +35,20 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background dark flex flex-col">
+      {/* Header */}
+      <header className="h-16 border-b border-border flex items-center justify-between px-6">
+        <div className="flex items-center gap-2">
+          <Code2 className="h-6 w-6 text-primary" />
+          <span className="font-semibold text-foreground">CodeSync</span>
+        </div>
+        <Link to="/about">
+          <Button variant="ghost" size="sm">
+            <Info className="h-4 w-4 mr-2" />
+            About Us
+          </Button>
+        </Link>
+      </header>
+
       {/* Hero Section */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
         <div className="max-w-4xl w-full text-center space-y-8">
