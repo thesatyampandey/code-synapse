@@ -368,51 +368,25 @@ const Room = () => {
             </div>
           </div>
 
-          {/* Monaco Editor & Output Panel */}
-          <div className="flex-1 flex flex-col">
-            <div className={showOutput ? "h-2/3" : "flex-1"}>
-              <Editor
-                height="100%"
-                language={activeFile?.language || "typescript"}
-                value={activeFile?.content || ""}
-                onChange={handleEditorChange}
-                theme="vs-dark"
-                options={{
-                  fontSize: 14,
-                  fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  smoothScrolling: true,
-                  cursorBlinking: "smooth",
-                  cursorSmoothCaretAnimation: "on",
-                  padding: { top: 16 },
-                }}
-              />
-            </div>
-
-            {/* Output Panel */}
-            {showOutput && (
-              <div className="h-1/3 border-t border-border bg-editor-bg flex flex-col">
-                <div className="h-10 border-b border-border flex items-center justify-between px-4 flex-shrink-0">
-                  <div className="flex items-center gap-2">
-                    <Terminal className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">Output</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowOutput(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4">
-                  <pre className="text-sm text-foreground font-mono whitespace-pre-wrap">
-                    {output || "Run your code to see output here..."}
-                  </pre>
-                </div>
-              </div>
-            )}
+          {/* Monaco Editor */}
+          <div className="flex-1">
+            <Editor
+              height="100%"
+              language={activeFile?.language || "typescript"}
+              value={activeFile?.content || ""}
+              onChange={handleEditorChange}
+              theme="vs-dark"
+              options={{
+                fontSize: 14,
+                fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                smoothScrolling: true,
+                cursorBlinking: "smooth",
+                cursorSmoothCaretAnimation: "on",
+                padding: { top: 16 },
+              }}
+            />
           </div>
         </div>
 
@@ -459,6 +433,31 @@ const Room = () => {
           </div>
         </div>
       </div>
+
+      {/* Output Dialog Popup */}
+      <Dialog open={showOutput} onOpenChange={setShowOutput}>
+        <DialogContent className="max-w-3xl max-h-[80vh] bg-editor-bg border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Terminal className="h-5 w-5 text-primary" />
+              Output
+            </DialogTitle>
+            <DialogDescription>
+              Code compilation and execution results
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto rounded-md bg-black/20 p-4">
+            <pre className="text-sm text-foreground font-mono whitespace-pre-wrap">
+              {output || "Run your code to see output here..."}
+            </pre>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowOutput(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Status Bar */}
       <div className="h-6 bg-statusBar border-t border-border flex items-center justify-between px-4 text-xs text-muted-foreground">
