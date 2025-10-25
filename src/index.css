@@ -91,3 +91,10 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .g-button {
+    @apply rounded-[var(--radius)] border;
+    border-color: hsl(var(--border));
+  }
+}

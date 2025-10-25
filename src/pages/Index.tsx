@@ -41,12 +41,19 @@ const Index = () => {
           <Code2 className="h-6 w-6 text-primary" />
           <span className="font-semibold text-foreground">CodeSync</span>
         </div>
-        <Link to="/about">
-          <Button variant="ghost" size="sm">
-            <Info className="h-4 w-4 mr-2" />
-            About Us
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/auth">
+            <Button variant="ghost" size="sm">
+              Sign In
+            </Button>
+          </Link>
+          <Link to="/about">
+            <Button variant="ghost" size="sm">
+              <Info className="h-4 w-4 mr-2" />
+              About Us
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {/* Hero Section */}
