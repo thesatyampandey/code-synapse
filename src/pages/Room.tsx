@@ -392,7 +392,7 @@ const Room = () => {
 
             {/* Output Panel */}
             {showOutput && (
-              <div className="h-1/3 border-t border-border bg-editor-bg flex flex-col min-h-0">
+              <div className="h-1/3 border-t border-border bg-editor-bg flex flex-col">
                 <div className="h-10 border-b border-border flex items-center justify-between px-4 flex-shrink-0">
                   <div className="flex items-center gap-2">
                     <Terminal className="h-4 w-4 text-primary" />
@@ -406,14 +406,10 @@ const Room = () => {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="flex-1 overflow-auto min-h-0">
-                  <ScrollArea className="h-full">
-                    <div className="p-4">
-                      <pre className="text-sm text-foreground font-mono whitespace-pre-wrap">
-                        {output || "Run your code to see output here..."}
-                      </pre>
-                    </div>
-                  </ScrollArea>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <pre className="text-sm text-foreground font-mono whitespace-pre-wrap">
+                    {output || "Run your code to see output here..."}
+                  </pre>
                 </div>
               </div>
             )}
