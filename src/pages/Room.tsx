@@ -81,6 +81,7 @@ const Room = () => {
   const [username] = useState(`User${Math.floor(Math.random() * 1000)}`);
   const [output, setOutput] = useState<string>("");
   const [showOutput, setShowOutput] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileLanguage, setNewFileLanguage] = useState("typescript");
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
@@ -249,36 +250,67 @@ const Room = () => {
     setMessageInput("");
   };
 
-  const runCode = () => {
+  const runCode = async () => {
+    if (!activeFile) return;
+    
     setShowOutput(true);
+    setIsExecuting(true);
+    setOutput("Executing code...\nPlease wait...");
+    
     try {
-      const code = activeFile?.content || "";
-      const language = activeFile?.language || "unknown";
+      const code = activeFile.content;
+      const language = activeFile.language;
       
-      // Enhanced mock compiler with language-specific output
-      let simulatedOutput = "";
+      console.log('Running code:', { language, fileName: activeFile.name });
       
-      if (language === "javascript" || language === "typescript") {
-        simulatedOutput = `Running ${activeFile?.name}...\n\n✓ TypeScript Compilation successful!\n✓ JavaScript execution completed\n\nOutput:\n${"=".repeat(50)}\nHello World\nExecution finished in 42ms\n${"=".repeat(50)}\n\n[Demo Mode: Code would run in secure sandbox]`;
-      } else if (language === "python") {
-        simulatedOutput = `Running ${activeFile?.name}...\n\n✓ Python ${activeFile?.name} executed successfully\n\nOutput:\n${"=".repeat(50)}\nHello World\nExecution time: 0.034s\n${"=".repeat(50)}\n\n[Demo Mode: Code would run in secure sandbox]`;
+      toast({
+        title: "Executing code...",
+        description: "Running your code in a secure sandbox",
+      });
+
+      // Call the edge function to execute code
+      const { data, error } = await supabase.functions.invoke('execute-code', {
+        body: { code, language }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        setOutput(`${"=".repeat(50)}\nERROR\n${"=".repeat(50)}\n\n${error.message}\n\nPlease try again or check your code.`);
+        toast({
+          title: "Execution error",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Execution result:', data);
+      
+      setOutput(data.output || "No output generated");
+      
+      if (data.success) {
+        toast({
+          title: "Code executed successfully",
+          description: "Check the output window for results",
+        });
       } else {
-        simulatedOutput = `Compiling ${activeFile?.name}...\n\n✓ Compilation successful!\n✓ Program executed\n\nOutput:\n${"=".repeat(50)}\nProgram output appears here\n${"=".repeat(50)}\n\n[Demo Mode: Code would run in secure sandbox]`;
+        toast({
+          title: "Execution completed with errors",
+          description: "Check the output window for details",
+          variant: "destructive",
+        });
       }
       
-      setOutput(simulatedOutput);
-      
-      toast({
-        title: "Code executed",
-        description: "Check the output window",
-      });
     } catch (error) {
-      setOutput(`${"=".repeat(50)}\nERROR\n${"=".repeat(50)}\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\nStack trace:\n  at line 1:1`);
+      console.error('Execution error:', error);
+      setOutput(`${"=".repeat(50)}\nERROR\n${"=".repeat(50)}\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your code and try again.`);
       toast({
         title: "Execution error",
-        description: "Check the output window for details",
+        description: "Failed to execute code",
         variant: "destructive",
       });
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -457,9 +489,14 @@ const Room = () => {
               ))}
             </div>
             <div className="flex items-center px-2">
-              <Button onClick={runCode} size="sm" className="bg-green-600 hover:bg-green-700 text-white shadow-lg">
-                <Play className="h-4 w-4 mr-2" />
-                Run Code
+              <Button 
+                onClick={runCode} 
+                size="sm" 
+                className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                disabled={isExecuting}
+              >
+                <Play className={`h-4 w-4 mr-2 ${isExecuting ? 'animate-spin' : ''}`} />
+                {isExecuting ? 'Running...' : 'Run Code'}
               </Button>
             </div>
           </div>
@@ -532,23 +569,40 @@ const Room = () => {
 
       {/* Output Dialog Popup */}
       <Dialog open={showOutput} onOpenChange={setShowOutput}>
-        <DialogContent className="max-w-3xl max-h-[80vh] bg-editor-bg border-border">
+        <DialogContent className="max-w-4xl max-h-[85vh] bg-editor-bg border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Terminal className="h-5 w-5 text-primary" />
-              Output
+              <Terminal className="h-5 w-5 text-green-500" />
+              Code Execution Output
             </DialogTitle>
             <DialogDescription>
-              Code compilation and execution results
+              Real-time code compilation and execution results powered by Piston API
             </DialogDescription>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto rounded-md bg-black/20 p-4">
-            <pre className="text-sm text-foreground font-mono whitespace-pre-wrap">
-              {output || "Run your code to see output here..."}
-            </pre>
+          <div className="max-h-[65vh] overflow-y-auto rounded-lg bg-black/30 p-4 border border-border">
+            {isExecuting ? (
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <Play className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Executing code in secure sandbox...</span>
+              </div>
+            ) : (
+              <pre className="text-sm text-foreground font-mono whitespace-pre-wrap">
+                {output || "Run your code to see output here..."}
+              </pre>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowOutput(false)}>
+          <DialogFooter className="gap-2">
+            {!isExecuting && (
+              <Button 
+                variant="outline" 
+                onClick={runCode}
+                className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Run Again
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => setShowOutput(false)} disabled={isExecuting}>
               Close
             </Button>
           </DialogFooter>
