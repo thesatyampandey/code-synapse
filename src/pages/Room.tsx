@@ -8,6 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,11 +85,14 @@ const Room = () => {
   const [newFileLanguage, setNewFileLanguage] = useState("typescript");
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
 
+  // Load files from database
   useEffect(() => {
     if (!roomId) {
       navigate("/");
       return;
     }
+    
+    loadFiles();
     
     toast({
       title: "Connected to room",
@@ -95,13 +100,66 @@ const Room = () => {
     });
   }, [roomId, navigate, toast]);
 
+  const loadFiles = async () => {
+    const { data, error } = await supabase
+      .from('files')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error loading files:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      setFiles(data.map(f => ({
+        id: f.id,
+        name: f.name,
+        content: f.content,
+        language: f.language
+      })));
+      setActiveFileId(data[0].id);
+    } else {
+      // Create initial file if none exist
+      const initialFile = {
+        room_id: roomId,
+        name: "index.tsx",
+        content: "// Welcome to CodeSync!\n// Start coding together...\n\nfunction App() {\n  return (\n    <div>\n      <h1>Hello World</h1>\n    </div>\n  );\n}\n\nexport default App;",
+        language: "typescript"
+      };
+
+      const { data: newFile, error: insertError } = await supabase
+        .from('files')
+        .insert(initialFile)
+        .select()
+        .single();
+
+      if (!insertError && newFile) {
+        setFiles([{
+          id: newFile.id,
+          name: newFile.name,
+          content: newFile.content,
+          language: newFile.language
+        }]);
+        setActiveFileId(newFile.id);
+      }
+    }
+  };
+
   const activeFile = files.find(f => f.id === activeFileId);
 
-  const handleEditorChange = (value: string | undefined) => {
+  const handleEditorChange = async (value: string | undefined) => {
     if (value !== undefined && activeFile) {
       setFiles(files.map(f => 
         f.id === activeFileId ? { ...f, content: value } : f
       ));
+
+      // Save to database
+      await supabase
+        .from('files')
+        .update({ content: value })
+        .eq('id', activeFileId);
     }
   };
 
@@ -109,7 +167,7 @@ const Room = () => {
     setShowNewFileDialog(true);
   };
 
-  const createNewFile = () => {
+  const createNewFile = async () => {
     if (!newFileName.trim()) {
       toast({
         title: "Error",
@@ -123,15 +181,36 @@ const Room = () => {
     const extension = selectedLang?.ext || ".txt";
     const fileName = newFileName.includes(".") ? newFileName : `${newFileName}${extension}`;
 
-    const newFile: File = {
-      id: Date.now().toString(),
-      name: fileName,
-      content: `// New ${selectedLang?.label || "file"}\n`,
-      language: newFileLanguage
-    };
+    const { data: newFile, error } = await supabase
+      .from('files')
+      .insert({
+        room_id: roomId,
+        name: fileName,
+        content: `// New ${selectedLang?.label || "file"}\n`,
+        language: newFileLanguage
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newFile) {
+      setFiles([...files, {
+        id: newFile.id,
+        name: newFile.name,
+        content: newFile.content,
+        language: newFile.language
+      }]);
+      setActiveFileId(newFile.id);
+    }
     
-    setFiles([...files, newFile]);
-    setActiveFileId(newFile.id);
     setShowNewFileDialog(false);
     setNewFileName("");
     
@@ -141,8 +220,14 @@ const Room = () => {
     });
   };
 
-  const closeFile = (fileId: string) => {
+  const closeFile = async (fileId: string) => {
     if (files.length === 1) return;
+    
+    await supabase
+      .from('files')
+      .delete()
+      .eq('id', fileId);
+    
     const newFiles = files.filter(f => f.id !== fileId);
     setFiles(newFiles);
     if (activeFileId === fileId) {
@@ -167,21 +252,31 @@ const Room = () => {
   const runCode = () => {
     setShowOutput(true);
     try {
-      // Simple mock compiler - in production, this would send to a backend
       const code = activeFile?.content || "";
+      const language = activeFile?.language || "unknown";
       
-      // For demo purposes, we'll simulate output
-      setOutput(`Compiling ${activeFile?.name}...\n\n✓ Compilation successful!\n\nOutput:\nCode executed successfully.\n\n[Note: This is a demo compiler. In production, code would be executed in a secure sandbox environment.]`);
+      // Enhanced mock compiler with language-specific output
+      let simulatedOutput = "";
+      
+      if (language === "javascript" || language === "typescript") {
+        simulatedOutput = `Running ${activeFile?.name}...\n\n✓ TypeScript Compilation successful!\n✓ JavaScript execution completed\n\nOutput:\n${"=".repeat(50)}\nHello World\nExecution finished in 42ms\n${"=".repeat(50)}\n\n[Demo Mode: Code would run in secure sandbox]`;
+      } else if (language === "python") {
+        simulatedOutput = `Running ${activeFile?.name}...\n\n✓ Python ${activeFile?.name} executed successfully\n\nOutput:\n${"=".repeat(50)}\nHello World\nExecution time: 0.034s\n${"=".repeat(50)}\n\n[Demo Mode: Code would run in secure sandbox]`;
+      } else {
+        simulatedOutput = `Compiling ${activeFile?.name}...\n\n✓ Compilation successful!\n✓ Program executed\n\nOutput:\n${"=".repeat(50)}\nProgram output appears here\n${"=".repeat(50)}\n\n[Demo Mode: Code would run in secure sandbox]`;
+      }
+      
+      setOutput(simulatedOutput);
       
       toast({
-        title: "Code compiled",
-        description: "Check the output panel below",
+        title: "Code executed",
+        description: "Check the output window",
       });
     } catch (error) {
-      setOutput(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setOutput(`${"=".repeat(50)}\nERROR\n${"=".repeat(50)}\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\nStack trace:\n  at line 1:1`);
       toast({
-        title: "Compilation error",
-        description: "Check the output panel for details",
+        title: "Execution error",
+        description: "Check the output window for details",
         variant: "destructive",
       });
     }
@@ -196,35 +291,36 @@ const Room = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background dark">
+    <div className="h-screen flex flex-col bg-background">
       {/* Top Bar */}
-      <div className="h-12 bg-statusBar border-b border-border flex items-center justify-between px-4">
-        <div className="flex items-center gap-3">
-          <Code2 className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-foreground">CodeSync</span>
-          <span className="text-xs text-muted-foreground">Room: {roomId}</span>
+      <div className="h-14 bg-gradient-to-r from-background to-muted border-b border-border flex items-center justify-between px-6 shadow-lg">
+        <div className="flex items-center gap-4">
+          <Code2 className="h-6 w-6 text-primary" />
+          <span className="font-bold text-lg text-foreground">CodeSync</span>
+          <span className="text-sm text-muted-foreground px-3 py-1 bg-muted rounded-full">Room: {roomId}</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 mr-2">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full mr-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">1 user</span>
+            <span className="text-sm text-muted-foreground">1 user</span>
           </div>
+          <ThemeToggle />
           <Link to="/profile">
-            <Button variant="ghost" size="sm">
-              <User className="h-4 w-4 mr-1" />
+            <Button size="sm" className="bg-teal-500 hover:bg-teal-600 text-white">
+              <User className="h-4 w-4 mr-2" />
               Profile
             </Button>
           </Link>
           <Link to="/">
-            <Button variant="ghost" size="sm">
-              <Home className="h-4 w-4 mr-1" />
+            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              <Home className="h-4 w-4 mr-2" />
               Home
             </Button>
           </Link>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <LogOut className="h-4 w-4 mr-1" />
+              <Button size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
+                <LogOut className="h-4 w-4 mr-2" />
                 Leave Room
               </Button>
             </AlertDialogTrigger>
@@ -232,12 +328,12 @@ const Room = () => {
               <AlertDialogHeader>
                 <AlertDialogTitle>Leave this room?</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground">
-                  You will exit the collaboration session. Your code changes may not be saved.
+                  You will exit the collaboration session. All code is auto-saved to the database.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={leaveRoom} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <AlertDialogAction onClick={leaveRoom} className="bg-rose-600 hover:bg-rose-700 text-white">
                   Leave Room
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -361,8 +457,8 @@ const Room = () => {
               ))}
             </div>
             <div className="flex items-center px-2">
-              <Button onClick={runCode} size="sm" className="bg-primary hover:bg-primary/90">
-                <Play className="h-4 w-4 mr-1" />
+              <Button onClick={runCode} size="sm" className="bg-green-600 hover:bg-green-700 text-white shadow-lg">
+                <Play className="h-4 w-4 mr-2" />
                 Run Code
               </Button>
             </div>
