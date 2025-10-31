@@ -1,4 +1,4 @@
 project_id = "etlgnxevnfvmvkqswuaq"
 
 [functions.execute-code]
-verify_jwt = false
+verify_jwt = true

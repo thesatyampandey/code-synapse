@@ -1,8 +1,9 @@
-import { useState, ChangeEvent, FormEvent } from 'react';
+import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Ripple, AuthTabs, TechOrbitDisplay } from '@/components/ui/modern-animated-sign-in';
 import { Code2, FileCode, GitBranch, Terminal, Users, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 type FormData = {
   email: string;
@@ -70,8 +71,19 @@ export default function Auth() {
     email: '',
     password: '',
   });
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check if user is already logged in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate('/');
+      }
+    });
+  }, [navigate]);
 
   const handleInputChange = (
     event: ChangeEvent<HTMLInputElement>,
@@ -86,31 +98,60 @@ export default function Auth() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoading(true);
     
-    // Mock authentication
-    toast({
-      title: "Login successful",
-      description: "Welcome back to CodeSync!",
-    });
-    
-    setTimeout(() => {
-      navigate('/');
-    }, 500);
+    try {
+      if (isSignUp) {
+        const { data, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          },
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Account created!",
+          description: "Welcome to CodeSync! You're now logged in.",
+        });
+        navigate('/');
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Login successful",
+          description: "Welcome back to CodeSync!",
+        });
+        navigate('/');
+      }
+    } catch (error: any) {
+      toast({
+        title: isSignUp ? "Signup failed" : "Login failed",
+        description: error.message || "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const goToForgotPassword = (
+  const toggleAuthMode = (
     event: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>
   ) => {
     event.preventDefault();
-    toast({
-      title: "Password reset",
-      description: "Password reset feature coming soon!",
-    });
+    setIsSignUp(!isSignUp);
   };
 
   const formFields = {
     header: 'Welcome to CodeSync',
-    subHeader: 'Sign in to start collaborating',
+    subHeader: isSignUp ? 'Create an account to start collaborating' : 'Sign in to start collaborating',
     fields: [
       {
         label: 'Email',
@@ -129,8 +170,8 @@ export default function Auth() {
           handleInputChange(event, 'password'),
       },
     ],
-    submitButton: 'Sign in',
-    textVariantButton: 'Forgot password?',
+    submitButton: loading ? 'Please wait...' : (isSignUp ? 'Sign up' : 'Sign in'),
+    textVariantButton: isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up',
   };
 
   return (
@@ -145,7 +186,7 @@ export default function Auth() {
       <span className='w-1/2 min-h-screen flex flex-col justify-center items-center max-lg:w-full max-lg:px-[10%]'>
         <AuthTabs
           formFields={formFields}
-          goTo={goToForgotPassword}
+          goTo={toggleAuthMode}
           handleSubmit={handleSubmit}
         />
       </span>

@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { User as SupabaseUser } from "@supabase/supabase-js";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   AlertDialog,
@@ -72,6 +73,8 @@ const Room = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState<File[]>([
     { id: "1", name: "index.tsx", content: "// Welcome to CodeSync!\n// Start coding together...\n\nfunction App() {\n  return (\n    <div>\n      <h1>Hello World</h1>\n    </div>\n  );\n}\n\nexport default App;", language: "typescript" }
   ]);
@@ -86,20 +89,64 @@ const Room = () => {
   const [newFileLanguage, setNewFileLanguage] = useState("typescript");
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
 
-  // Load files from database
+  // Check authentication
   useEffect(() => {
-    if (!roomId) {
-      navigate("/");
-      return;
-    }
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to access rooms.",
+          variant: "destructive",
+        });
+        navigate('/auth');
+        return;
+      }
+
+      setUser(session.user);
+      setLoading(false);
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_OUT' || !session) {
+          navigate('/auth');
+        } else {
+          setUser(session.user);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [navigate, toast]);
+
+  // Load files and auto-join room when authenticated
+  useEffect(() => {
+    if (!roomId || !user || loading) return;
     
+    const joinRoom = async () => {
+      const { error } = await supabase
+        .from('room_members')
+        .insert({ room_id: roomId, user_id: user.id })
+        .select()
+        .single();
+      
+      if (error && !error.message.includes('duplicate')) {
+        console.error('Error joining room:', error);
+      }
+    };
+
+    joinRoom();
     loadFiles();
     
     toast({
       title: "Connected to room",
       description: `Room ID: ${roomId}`,
     });
-  }, [roomId, navigate, toast]);
+  }, [roomId, user, loading, toast]);
 
   const loadFiles = async () => {
     const { data, error } = await supabase
@@ -251,7 +298,14 @@ const Room = () => {
   };
 
   const runCode = async () => {
-    if (!activeFile) return;
+    if (!activeFile || !user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to execute code.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setShowOutput(true);
     setIsExecuting(true);
@@ -268,13 +322,17 @@ const Room = () => {
         description: "Running your code in a secure sandbox",
       });
 
-      // Call the edge function to execute code
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Call the edge function to execute code with authentication
       const { data, error } = await supabase.functions.invoke('execute-code', {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
         body: { code, language }
       });
 
       if (error) {
-        console.error('Edge function error:', error);
         setOutput(`${"=".repeat(50)}\nERROR\n${"=".repeat(50)}\n\n${error.message}\n\nPlease try again or check your code.`);
         toast({
           title: "Execution error",
@@ -283,8 +341,6 @@ const Room = () => {
         });
         return;
       }
-
-      console.log('Execution result:', data);
       
       setOutput(data.output || "No output generated");
       
@@ -302,7 +358,6 @@ const Room = () => {
       }
       
     } catch (error) {
-      console.error('Execution error:', error);
       setOutput(`${"=".repeat(50)}\nERROR\n${"=".repeat(50)}\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your code and try again.`);
       toast({
         title: "Execution error",
@@ -321,6 +376,17 @@ const Room = () => {
       description: "You have left the collaboration session",
     });
   };
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading room...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background">

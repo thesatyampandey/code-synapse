@@ -28,11 +28,20 @@ serve(async (req) => {
   try {
     const { code, language } = await req.json();
     
-    console.log('Executing code:', { language, codeLength: code?.length });
+    console.log('Code execution requested:', { language, codeLength: code?.length });
 
+    // Validate inputs
     if (!code || !language) {
       return new Response(
         JSON.stringify({ error: 'Code and language are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Enforce code size limit (100KB)
+    if (code.length > 100000) {
+      return new Response(
+        JSON.stringify({ error: 'Code too large. Maximum size is 100KB.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -104,11 +113,11 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in execute-code function:', error);
+    console.error('[EXECUTION_ERROR]', error instanceof Error ? error.message : 'Unknown error');
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        output: `${"=".repeat(50)}\nERROR\n${"=".repeat(50)}\n\n${error instanceof Error ? error.message : 'Unknown error occurred'}\n\nPlease check your code and try again.`
+        error: 'Code execution failed',
+        output: `${"=".repeat(50)}\nERROR\n${"=".repeat(50)}\n\nCode execution failed. Please check your code and try again.`
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
