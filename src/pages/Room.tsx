@@ -47,19 +47,19 @@ interface File {
 }
 
 const LANGUAGE_OPTIONS = [
-  { value: "typescript", label: "TypeScript", ext: ".ts" },
-  { value: "javascript", label: "JavaScript", ext: ".js" },
-  { value: "python", label: "Python", ext: ".py" },
-  { value: "java", label: "Java", ext: ".java" },
-  { value: "cpp", label: "C++", ext: ".cpp" },
-  { value: "c", label: "C", ext: ".c" },
-  { value: "html", label: "HTML", ext: ".html" },
-  { value: "css", label: "CSS", ext: ".css" },
-  { value: "json", label: "JSON", ext: ".json" },
-  { value: "markdown", label: "Markdown", ext: ".md" },
-  { value: "sql", label: "SQL", ext: ".sql" },
-  { value: "rust", label: "Rust", ext: ".rs" },
-  { value: "go", label: "Go", ext: ".go" },
+  { value: "typescript", label: "TypeScript", ext: ".ts", executable: true },
+  { value: "javascript", label: "JavaScript", ext: ".js", executable: true },
+  { value: "python", label: "Python", ext: ".py", executable: true },
+  { value: "java", label: "Java", ext: ".java", executable: true },
+  { value: "cpp", label: "C++", ext: ".cpp", executable: true },
+  { value: "c", label: "C", ext: ".c", executable: true },
+  { value: "rust", label: "Rust", ext: ".rs", executable: true },
+  { value: "go", label: "Go", ext: ".go", executable: true },
+  { value: "sql", label: "SQL", ext: ".sql", executable: true },
+  { value: "html", label: "HTML", ext: ".html", executable: false },
+  { value: "css", label: "CSS", ext: ".css", executable: false },
+  { value: "json", label: "JSON", ext: ".json", executable: false },
+  { value: "markdown", label: "Markdown", ext: ".md", executable: false },
 ];
 
 interface Message {
@@ -306,6 +306,16 @@ const Room = () => {
       });
       return;
     }
+
+    const isExecutable = LANGUAGE_OPTIONS.find(l => l.value === activeFile.language)?.executable;
+    if (!isExecutable) {
+      toast({
+        title: "Cannot execute",
+        description: `${activeFile.language.toUpperCase()} files cannot be executed. Only programming languages like Python, JavaScript, C++, etc. can run.`,
+        variant: "destructive",
+      });
+      return;
+    }
     
     setShowOutput(true);
     setIsExecuting(true);
@@ -318,7 +328,7 @@ const Room = () => {
       console.log('Running code:', { language, fileName: activeFile.name });
       
       toast({
-        title: "Executing code...",
+        title: `Executing ${LANGUAGE_OPTIONS.find(l => l.value === language)?.label} code...`,
         description: "Running your code in a secure sandbox",
       });
 
@@ -554,12 +564,35 @@ const Room = () => {
                 </div>
               ))}
             </div>
-            <div className="flex items-center px-2">
+            <div className="flex items-center gap-2 px-2">
+              <Select 
+                value={activeFile?.language || "typescript"} 
+                onValueChange={(newLang) => {
+                  if (activeFile) {
+                    setFiles(files.map(f => 
+                      f.id === activeFileId ? { ...f, language: newLang } : f
+                    ));
+                    supabase.from('files').update({ language: newLang }).eq('id', activeFileId);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[140px] h-8 bg-muted border-border text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {LANGUAGE_OPTIONS.map((lang) => (
+                    <SelectItem key={lang.value} value={lang.value} className="text-xs">
+                      {lang.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button 
                 onClick={runCode} 
                 size="sm" 
                 className="bg-green-600 hover:bg-green-700 text-white shadow-lg"
-                disabled={isExecuting}
+                disabled={isExecuting || !LANGUAGE_OPTIONS.find(l => l.value === activeFile?.language)?.executable}
+                title={!LANGUAGE_OPTIONS.find(l => l.value === activeFile?.language)?.executable ? "This language is not executable" : "Run code"}
               >
                 <Play className={`h-4 w-4 mr-2 ${isExecuting ? 'animate-spin' : ''}`} />
                 {isExecuting ? 'Running...' : 'Run Code'}
@@ -678,10 +711,13 @@ const Room = () => {
       {/* Status Bar */}
       <div className="h-6 bg-statusBar border-t border-border flex items-center justify-between px-4 text-xs text-muted-foreground">
         <div className="flex items-center gap-4">
-          <span>TypeScript</span>
+          <span>{LANGUAGE_OPTIONS.find(l => l.value === activeFile?.language)?.label || "Text"}</span>
           <span>UTF-8</span>
+          <span className="text-green-500">
+            {LANGUAGE_OPTIONS.find(l => l.value === activeFile?.language)?.executable ? "✓ Executable" : "• View Only"}
+          </span>
         </div>
-        <div>Line 1, Col 1</div>
+        <div>Room: {roomId}</div>
       </div>
     </div>
   );
