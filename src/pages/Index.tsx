@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Users, Zap, MessageSquare, ArrowRight, Info } from "lucide-react";
+import { Code2, Users, Zap, MessageSquare, ArrowRight, Info, Settings } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 
@@ -45,6 +45,12 @@ const Index = () => {
           <Link to="/profile">
             <Button variant="ghost" size="sm">
               Profile
+            </Button>
+          </Link>
+          <Link to="/settings">
+            <Button variant="ghost" size="sm">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
             </Button>
           </Link>
           <Link to="/auth">

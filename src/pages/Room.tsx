@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User, Download, ThumbsUp, Heart, Smile as SmileIcon, Share2, Copy, CheckCircle2 } from "lucide-react";
+import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User, Download, ThumbsUp, Heart, Smile as SmileIcon, Share2, Copy, CheckCircle2, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser } from "@supabase/supabase-js";
@@ -92,6 +92,25 @@ const Room = () => {
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [editorSettings, setEditorSettings] = useState({
+    fontSize: 14,
+    tabSize: 2,
+    autoSave: true,
+    autoSaveInterval: 5,
+    theme: "vs-dark",
+    fontFamily: "fira-code",
+    minimap: false,
+    lineNumbers: true,
+    wordWrap: false,
+  });
+
+  // Load editor settings
+  useEffect(() => {
+    const savedSettings = localStorage.getItem("editorSettings");
+    if (savedSettings) {
+      setEditorSettings(JSON.parse(savedSettings));
+    }
+  }, []);
 
   // Check authentication
   useEffect(() => {
@@ -207,12 +226,33 @@ const Room = () => {
         f.id === activeFileId ? { ...f, content: value } : f
       ));
 
-      // Save to database
-      await supabase
-        .from('files')
-        .update({ content: value })
-        .eq('id', activeFileId);
+      // Auto-save to database if enabled
+      if (editorSettings.autoSave) {
+        setTimeout(async () => {
+          await supabase
+            .from('files')
+            .update({ content: value })
+            .eq('id', activeFileId);
+        }, editorSettings.autoSaveInterval * 1000);
+      } else {
+        // Manual save
+        await supabase
+          .from('files')
+          .update({ content: value })
+          .eq('id', activeFileId);
+      }
     }
+  };
+
+  const getFontFamilyCSS = (fontFamily: string) => {
+    const fontMap: { [key: string]: string } = {
+      "fira-code": "'Fira Code', 'Cascadia Code', Consolas, monospace",
+      "cascadia": "'Cascadia Code', Consolas, monospace",
+      "consolas": "Consolas, monospace",
+      "monaco": "Monaco, monospace",
+      "monospace": "monospace",
+    };
+    return fontMap[fontFamily] || fontMap["fira-code"];
   };
 
   const addNewFile = () => {
@@ -475,6 +515,11 @@ const Room = () => {
             <Share2 className="h-4 w-4 mr-2" />
             Share
           </Button>
+          <Link to="/settings">
+            <Button size="sm" variant="ghost">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </Link>
           <ThemeToggle />
           <Link to="/profile">
             <Button size="sm" className="bg-teal-500 hover:bg-teal-600 text-white">
@@ -680,11 +725,14 @@ const Room = () => {
               language={activeFile?.language || "typescript"}
               value={activeFile?.content || ""}
               onChange={handleEditorChange}
-              theme="vs-dark"
+              theme={editorSettings.theme}
               options={{
-                fontSize: 14,
-                fontFamily: "'Fira Code', 'Cascadia Code', Consolas, monospace",
-                minimap: { enabled: false },
+                fontSize: editorSettings.fontSize,
+                fontFamily: getFontFamilyCSS(editorSettings.fontFamily),
+                tabSize: editorSettings.tabSize,
+                minimap: { enabled: editorSettings.minimap },
+                lineNumbers: editorSettings.lineNumbers ? "on" : "off",
+                wordWrap: editorSettings.wordWrap ? "on" : "off",
                 scrollBeyondLastLine: false,
                 smoothScrolling: true,
                 cursorBlinking: "smooth",
