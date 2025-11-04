@@ -5,15 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, User, Mail, Calendar, Code2, Users, FileCode } from "lucide-react";
+import { ArrowLeft, User, Mail, Calendar, Code2, Users, FileCode, Smile } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const Profile = () => {
   const { toast } = useToast();
   const [username, setUsername] = useState("User123");
   const [email, setEmail] = useState("user@example.com");
   const [bio, setBio] = useState("Passionate developer and collaborative coding enthusiast");
+  const [profileEmoji, setProfileEmoji] = useState("👨‍💻");
+
+  const emojis = ["👨‍💻", "👩‍💻", "🧑‍💻", "😎", "🤓", "🚀", "💻", "⚡", "🔥", "✨", "🎯", "🎨", "🎮", "🎵", "🌟", "💡", "🦄", "🐱", "🐶", "🦊"];
 
   const saveProfile = () => {
     toast({
@@ -44,11 +48,38 @@ const Profile = () => {
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-8">
         {/* Profile Header */}
         <div className="flex items-center gap-6">
-          <Avatar className="h-24 w-24">
-            <AvatarFallback className="bg-gradient-primary text-white text-3xl font-bold">
-              {username.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="relative group">
+                <Avatar className="h-24 w-24 cursor-pointer ring-2 ring-border hover:ring-primary transition-all">
+                  <AvatarFallback className="bg-gradient-primary text-white text-5xl">
+                    {profileEmoji}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Smile className="h-8 w-8 text-white" />
+                </div>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 bg-card border-border">
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-foreground mb-3">Choose Profile Emoji</h4>
+                <div className="grid grid-cols-5 gap-2">
+                  {emojis.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => setProfileEmoji(emoji)}
+                      className={`text-3xl p-2 rounded-lg hover:bg-muted transition-colors ${
+                        profileEmoji === emoji ? 'bg-primary/20 ring-2 ring-primary' : ''
+                      }`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           <div>
             <h1 className="text-3xl font-bold text-foreground">{username}</h1>
             <p className="text-muted-foreground mt-1">{email}</p>

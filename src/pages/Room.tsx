@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User } from "lucide-react";
+import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User, Download, ThumbsUp, Heart, Smile as SmileIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser } from "@supabase/supabase-js";
@@ -67,6 +67,7 @@ interface Message {
   user: string;
   text: string;
   timestamp: Date;
+  reactions?: { [emoji: string]: number };
 }
 
 const Room = () => {
@@ -290,11 +291,42 @@ const Room = () => {
       id: Date.now().toString(),
       user: username,
       text: messageInput,
-      timestamp: new Date()
+      timestamp: new Date(),
+      reactions: {}
     };
     
     setMessages([...messages, newMessage]);
     setMessageInput("");
+  };
+
+  const addReaction = (messageId: string, emoji: string) => {
+    setMessages(messages.map(msg => {
+      if (msg.id === messageId) {
+        const reactions = { ...msg.reactions };
+        reactions[emoji] = (reactions[emoji] || 0) + 1;
+        return { ...msg, reactions };
+      }
+      return msg;
+    }));
+  };
+
+  const downloadCode = () => {
+    if (!activeFile) return;
+    
+    const blob = new Blob([activeFile.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = activeFile.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "File downloaded",
+      description: `${activeFile.name} has been downloaded`,
+    });
   };
 
   const runCode = async () => {
@@ -565,6 +597,16 @@ const Room = () => {
               ))}
             </div>
             <div className="flex items-center gap-2 px-2">
+              <Button 
+                onClick={downloadCode} 
+                size="sm" 
+                variant="outline"
+                className="border-border hover:bg-muted"
+                title="Download current file"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
               <Select 
                 value={activeFile?.language || "typescript"} 
                 onValueChange={(newLang) => {
@@ -636,7 +678,7 @@ const Room = () => {
               </div>
             ) : (
               messages.map(msg => (
-                <div key={msg.id} className="mb-4">
+                <div key={msg.id} className="mb-4 group">
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm font-semibold text-primary">{msg.user}</span>
                     <span className="text-xs text-muted-foreground">
@@ -644,6 +686,44 @@ const Room = () => {
                     </span>
                   </div>
                   <p className="text-sm text-foreground mt-1">{msg.text}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-6 px-2 hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => addReaction(msg.id, "👍")}
+                    >
+                      <ThumbsUp className="h-3 w-3" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-6 px-2 hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => addReaction(msg.id, "❤️")}
+                    >
+                      <Heart className="h-3 w-3" />
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-6 px-2 hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => addReaction(msg.id, "😄")}
+                    >
+                      <SmileIcon className="h-3 w-3" />
+                    </Button>
+                    {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                      <div className="flex gap-1 ml-2">
+                        {Object.entries(msg.reactions).map(([emoji, count]) => (
+                          <span 
+                            key={emoji} 
+                            className="text-xs bg-muted px-2 py-0.5 rounded-full"
+                          >
+                            {emoji} {count}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             )}

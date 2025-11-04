@@ -154,7 +154,7 @@ const About = () => {
       {/* Footer */}
       <footer className="h-16 border-t border-border flex items-center justify-center">
         <p className="text-sm text-muted-foreground">
-          Built with ❤️ for collaborative coding
+          Built by Akash Mishra
         </p>
       </footer>
     </div>

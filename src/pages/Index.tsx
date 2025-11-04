@@ -42,6 +42,11 @@ const Index = () => {
           <span className="font-semibold text-foreground">CodeSync</span>
         </div>
         <div className="flex gap-2">
+          <Link to="/profile">
+            <Button variant="ghost" size="sm">
+              Profile
+            </Button>
+          </Link>
           <Link to="/auth">
             <Button variant="ghost" size="sm">
               Sign In
@@ -157,7 +162,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="h-16 border-t border-border flex items-center justify-center">
         <p className="text-sm text-muted-foreground">
-          Built with ❤️ for collaborative coding
+          Built by Akash Mishra
         </p>
       </footer>
     </div>
