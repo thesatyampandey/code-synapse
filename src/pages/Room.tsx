@@ -6,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User, Download, ThumbsUp, Heart, Smile as SmileIcon } from "lucide-react";
+import { Code2, MessageSquare, Users, FileCode, Plus, X, Send, Home, LogOut, Play, Terminal, User, Download, ThumbsUp, Heart, Smile as SmileIcon, Share2, Copy, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import QRCode from "react-qr-code";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -89,6 +90,8 @@ const Room = () => {
   const [newFileName, setNewFileName] = useState("");
   const [newFileLanguage, setNewFileLanguage] = useState("typescript");
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -329,6 +332,30 @@ const Room = () => {
     });
   };
 
+  const shareRoom = () => {
+    setShowShareDialog(true);
+    setLinkCopied(false);
+  };
+
+  const copyRoomLink = async () => {
+    const roomUrl = `${window.location.origin}/room/${roomId}`;
+    try {
+      await navigator.clipboard.writeText(roomUrl);
+      setLinkCopied(true);
+      toast({
+        title: "Link copied!",
+        description: "Share this link with your team",
+      });
+      setTimeout(() => setLinkCopied(false), 3000);
+    } catch (error) {
+      toast({
+        title: "Failed to copy",
+        description: "Please copy the link manually",
+        variant: "destructive",
+      });
+    }
+  };
+
   const runCode = async () => {
     if (!activeFile || !user) {
       toast({
@@ -444,6 +471,10 @@ const Room = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">1 user</span>
           </div>
+          <Button size="sm" variant="outline" onClick={shareRoom} className="border-primary text-primary hover:bg-primary hover:text-white">
+            <Share2 className="h-4 w-4 mr-2" />
+            Share
+          </Button>
           <ThemeToggle />
           <Link to="/profile">
             <Button size="sm" className="bg-teal-500 hover:bg-teal-600 text-white">
@@ -745,6 +776,69 @@ const Room = () => {
           </div>
         </div>
       </div>
+
+      {/* Share Room Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5 text-primary" />
+              Share Room
+            </DialogTitle>
+            <DialogDescription>
+              Share this link with your team to collaborate together
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* QR Code */}
+            <div className="flex justify-center p-4 bg-white rounded-lg">
+              <QRCode
+                value={`${window.location.origin}/room/${roomId}`}
+                size={200}
+                level="H"
+              />
+            </div>
+            
+            {/* Shareable Link */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Room Link</Label>
+              <div className="flex gap-2">
+                <Input
+                  readOnly
+                  value={`${window.location.origin}/room/${roomId}`}
+                  className="bg-muted border-border font-mono text-sm"
+                  onClick={(e) => e.currentTarget.select()}
+                />
+                <Button 
+                  onClick={copyRoomLink}
+                  size="icon"
+                  variant={linkCopied ? "default" : "outline"}
+                  className={linkCopied ? "bg-green-600 hover:bg-green-700" : ""}
+                >
+                  {linkCopied ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Room ID */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Room ID</Label>
+              <div className="px-4 py-2 bg-muted rounded-lg border border-border">
+                <code className="text-sm font-mono text-primary">{roomId}</code>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowShareDialog(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Output Dialog Popup */}
       <Dialog open={showOutput} onOpenChange={setShowOutput}>
