@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Users, Zap, MessageSquare, ArrowRight, Info, Settings } from "lucide-react";
+import { Code2, Users, Zap, MessageSquare, ArrowRight, Info, Settings, Sparkles } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 
@@ -42,6 +42,12 @@ const Index = () => {
           <span className="font-semibold text-foreground">CodeSync</span>
         </div>
         <div className="flex gap-2">
+          <Link to="/playground">
+            <Button variant="ghost" size="sm">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Playground
+            </Button>
+          </Link>
           <Link to="/profile">
             <Button variant="ghost" size="sm">
               Profile

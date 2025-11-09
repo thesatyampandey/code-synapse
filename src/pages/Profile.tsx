@@ -3,28 +3,158 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, User, Mail, Calendar, Code2, Users, FileCode, Smile } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, User, Mail, Calendar, Code2, Users, FileCode, Smile, Upload } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
+import { User as SupabaseUser } from "@supabase/supabase-js";
 
 const Profile = () => {
   const { toast } = useToast();
-  const [username, setUsername] = useState("User123");
-  const [email, setEmail] = useState("user@example.com");
-  const [bio, setBio] = useState("Passionate developer and collaborative coding enthusiast");
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [bio, setBio] = useState("");
   const [profileEmoji, setProfileEmoji] = useState("👨‍💻");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const emojis = ["👨‍💻", "👩‍💻", "🧑‍💻", "😎", "🤓", "🚀", "💻", "⚡", "🔥", "✨", "🎯", "🎨", "🎮", "🎵", "🌟", "💡", "🦄", "🐱", "🐶", "🦊"];
 
-  const saveProfile = () => {
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setLoading(false);
+        return;
+      }
+
+      setUser(session.user);
+      setEmail(session.user.email || "");
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile) {
+        setAvatarUrl(profile.avatar_url);
+      }
+      setLoading(false);
+    };
+
+    loadProfile();
+  }, []);
+
+  const saveProfile = async () => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: avatarUrl })
+      .eq('id', user.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save profile",
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Profile updated",
       description: "Your changes have been saved successfully",
     });
   };
+
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files[0] || !user) return;
+
+    const file = event.target.files[0];
+    
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file",
+        description: "Please upload an image (JPEG, PNG, WebP)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Image must be under 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      if (avatarUrl) {
+        const oldPath = avatarUrl.split('/').pop();
+        if (oldPath) {
+          await supabase.storage.from('avatars').remove([`${user.id}/${oldPath}`]);
+        }
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/avatar.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+      toast({
+        title: "Avatar updated",
+        description: "Profile picture uploaded successfully",
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload avatar",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   const stats = [
     { label: "Rooms Created", value: "12", icon: Users },
@@ -48,38 +178,64 @@ const Profile = () => {
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-8">
         {/* Profile Header */}
         <div className="flex items-center gap-6">
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="relative group">
-                <Avatar className="h-24 w-24 cursor-pointer ring-2 ring-border hover:ring-primary transition-all">
-                  <AvatarFallback className="bg-gradient-primary text-white text-5xl">
-                    {profileEmoji}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Smile className="h-8 w-8 text-white" />
+          <div className="relative group">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={uploadAvatar}
+              className="hidden"
+            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="relative group">
+                  <Avatar className="h-24 w-24 cursor-pointer ring-2 ring-border hover:ring-primary transition-all">
+                    {avatarUrl ? (
+                      <AvatarImage src={avatarUrl} alt="Profile" />
+                    ) : (
+                      <AvatarFallback className="bg-gradient-primary text-white text-5xl">
+                        {profileEmoji}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Smile className="h-8 w-8 text-white" />
+                  </div>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 bg-card border-border">
+                <div className="space-y-3">
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full"
+                    disabled={uploading}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploading ? "Uploading..." : "Upload Photo"}
+                  </Button>
+                  <div className="border-t border-border pt-3">
+                    <h4 className="font-medium text-sm text-foreground mb-3">Or choose emoji:</h4>
+                    <div className="grid grid-cols-5 gap-2">
+                      {emojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => {
+                            setProfileEmoji(emoji);
+                            setAvatarUrl(null);
+                          }}
+                          className={`text-3xl p-2 rounded-lg hover:bg-muted transition-colors ${
+                            profileEmoji === emoji && !avatarUrl ? 'bg-primary/20 ring-2 ring-primary' : ''
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 bg-card border-border">
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-foreground mb-3">Choose Profile Emoji</h4>
-                <div className="grid grid-cols-5 gap-2">
-                  {emojis.map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => setProfileEmoji(emoji)}
-                      className={`text-3xl p-2 rounded-lg hover:bg-muted transition-colors ${
-                        profileEmoji === emoji ? 'bg-primary/20 ring-2 ring-primary' : ''
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverContent>
+            </Popover>
+          </div>
           <div>
             <h1 className="text-3xl font-bold text-foreground">{username}</h1>
             <p className="text-muted-foreground mt-1">{email}</p>

@@ -83,10 +83,10 @@ const Room = () => {
   const [activeFileId, setActiveFileId] = useState("1");
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState("");
-  const [username] = useState(`User${Math.floor(Math.random() * 1000)}`);
   const [output, setOutput] = useState<string>("");
   const [showOutput, setShowOutput] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [newFileName, setNewFileName] = useState("");
   const [newFileLanguage, setNewFileLanguage] = useState("typescript");
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
@@ -146,7 +146,7 @@ const Room = () => {
     return () => subscription.unsubscribe();
   }, [navigate, toast]);
 
-  // Load files and auto-join room when authenticated
+  // Load files, messages and setup realtime when authenticated
   useEffect(() => {
     if (!roomId || !user || loading) return;
     
@@ -164,12 +164,96 @@ const Room = () => {
 
     joinRoom();
     loadFiles();
+    loadMessages();
     
     toast({
       title: "Connected to room",
       description: `Room ID: ${roomId}`,
     });
+
+    // Setup realtime subscriptions
+    const filesChannel = supabase
+      .channel(`files-${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'files',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          console.log('File change:', payload);
+          loadFiles();
+        }
+      )
+      .subscribe();
+
+    const messagesChannel = supabase
+      .channel(`messages-${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload) => {
+          console.log('New message:', payload);
+          const newMsg = payload.new;
+          
+          // Fetch sender email
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('id', newMsg.sender_id)
+            .single();
+          
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: newMsg.id,
+              user: profile?.email || 'Unknown',
+              text: newMsg.text,
+              timestamp: new Date(newMsg.created_at),
+              reactions: newMsg.reactions || {},
+            },
+          ]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(filesChannel);
+      supabase.removeChannel(messagesChannel);
+    };
   }, [roomId, user, loading, toast]);
+
+  const loadMessages = async () => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*, profiles!messages_sender_id_fkey(email)')
+      .eq('room_id', roomId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error loading messages:', error);
+      return;
+    }
+
+    if (data) {
+      setMessages(
+        data.map((msg: any) => ({
+          id: msg.id,
+          user: msg.profiles?.email || 'Unknown',
+          text: msg.text,
+          timestamp: new Date(msg.created_at),
+          reactions: msg.reactions || {},
+        }))
+      );
+    }
+  };
 
   const loadFiles = async () => {
     const { data, error } = await supabase
@@ -327,30 +411,45 @@ const Room = () => {
     }
   };
 
-  const sendMessage = () => {
-    if (!messageInput.trim()) return;
-    
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      user: username,
-      text: messageInput,
-      timestamp: new Date(),
-      reactions: {}
-    };
-    
-    setMessages([...messages, newMessage]);
+  const sendMessage = async () => {
+    if (!messageInput.trim() || !user) return;
+
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        room_id: roomId,
+        sender_id: user.id,
+        text: messageInput,
+      });
+
+    if (error) {
+      toast({
+        title: "Failed to send message",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setMessageInput("");
   };
 
-  const addReaction = (messageId: string, emoji: string) => {
-    setMessages(messages.map(msg => {
-      if (msg.id === messageId) {
-        const reactions = { ...msg.reactions };
-        reactions[emoji] = (reactions[emoji] || 0) + 1;
-        return { ...msg, reactions };
-      }
-      return msg;
-    }));
+  const addReaction = async (messageId: string, emoji: string) => {
+    const message = messages.find((m) => m.id === messageId);
+    if (!message) return;
+
+    const reactions = { ...message.reactions };
+    reactions[emoji] = (reactions[emoji] || 0) + 1;
+
+    await supabase
+      .from('messages')
+      .update({ reactions })
+      .eq('id', messageId);
+
+    setMessages(
+      messages.map((msg) =>
+        msg.id === messageId ? { ...msg, reactions } : msg
+      )
+    );
   };
 
   const downloadCode = () => {
@@ -369,6 +468,36 @@ const Room = () => {
     toast({
       title: "File downloaded",
       description: `${activeFile.name} has been downloaded`,
+    });
+  };
+
+  const downloadProject = async () => {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    
+    // Add all files to zip
+    files.forEach((file) => {
+      zip.file(file.name, file.content);
+    });
+    
+    // Add README
+    const readme = `# CodeSync Project\n\nRoom ID: ${roomId}\nExported: ${new Date().toISOString()}\nFiles: ${files.length}\n\n## Files\n${files.map(f => `- ${f.name}`).join('\n')}`;
+    zip.file('README.md', readme);
+    
+    // Generate and download
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `codesync-${roomId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Project downloaded",
+      description: `All ${files.length} files exported`,
     });
   };
 
@@ -681,7 +810,17 @@ const Room = () => {
                 title="Download current file"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Download
+                File
+              </Button>
+              <Button 
+                onClick={downloadProject} 
+                size="sm" 
+                variant="outline"
+                className="border-border hover:bg-muted"
+                title="Download all files as ZIP"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Project
               </Button>
               <Select 
                 value={activeFile?.language || "typescript"} 
