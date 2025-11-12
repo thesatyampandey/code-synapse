@@ -14,6 +14,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import QRCode from "react-qr-code";
 import { PresenceIndicator } from "@/components/PresenceIndicator";
 import { TypingIndicator, useTypingIndicator } from "@/components/TypingIndicator";
+import { RoomMembers } from "@/components/RoomMembers";
+import { Badge } from "@/components/ui/badge";
+import { Crown, Edit3, Eye } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,6 +102,8 @@ const Room = () => {
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [userRole, setUserRole] = useState<"owner" | "editor" | "viewer" | null>(null);
+  const [showMembersPanel, setShowMembersPanel] = useState(false);
   const [editorSettings, setEditorSettings] = useState({
     fontSize: 14,
     tabSize: 2,
@@ -158,14 +163,27 @@ const Room = () => {
     if (!roomId || !user || loading) return;
     
     const joinRoom = async () => {
+      // Try to join as editor by default
       const { error } = await supabase
         .from('room_members')
-        .insert({ room_id: roomId, user_id: user.id })
+        .insert({ room_id: roomId, user_id: user.id, role: 'editor' })
         .select()
-        .single();
+        .maybeSingle();
       
       if (error && !error.message.includes('duplicate')) {
         console.error('Error joining room:', error);
+      }
+
+      // Load user's role
+      const { data: memberData } = await supabase
+        .from('room_members')
+        .select('role')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (memberData) {
+        setUserRole(memberData.role);
       }
     };
 
@@ -349,7 +367,43 @@ const Room = () => {
   };
 
   const addNewFile = () => {
+    if (userRole === 'viewer') {
+      toast({
+        title: "Permission denied",
+        description: "Viewers cannot create files",
+        variant: "destructive",
+      });
+      return;
+    }
     setShowNewFileDialog(true);
+  };
+
+  const getRoleBadge = () => {
+    switch (userRole) {
+      case "owner":
+        return (
+          <Badge className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 border-yellow-500/50">
+            <Crown className="h-3 w-3 mr-1" />
+            Owner
+          </Badge>
+        );
+      case "editor":
+        return (
+          <Badge className="bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/50">
+            <Edit3 className="h-3 w-3 mr-1" />
+            Editor
+          </Badge>
+        );
+      case "viewer":
+        return (
+          <Badge variant="outline" className="text-muted-foreground">
+            <Eye className="h-3 w-3 mr-1" />
+            Viewer
+          </Badge>
+        );
+      default:
+        return null;
+    }
   };
 
   const createNewFile = async () => {
@@ -407,6 +461,16 @@ const Room = () => {
 
   const closeFile = async (fileId: string) => {
     if (files.length === 1) return;
+    
+    // Check permission
+    if (userRole !== 'owner') {
+      toast({
+        title: "Permission denied",
+        description: "Only owners can delete files",
+        variant: "destructive",
+      });
+      return;
+    }
     
     await supabase
       .from('files')
@@ -658,9 +722,19 @@ const Room = () => {
           <Code2 className="h-6 w-6 text-primary" />
           <span className="font-bold text-lg text-foreground">CodeSync</span>
           <span className="text-sm text-muted-foreground px-3 py-1 bg-muted rounded-full">Room: {roomId}</span>
+          {getRoleBadge()}
         </div>
         <div className="flex items-center gap-2">
           {roomId && <PresenceIndicator roomId={roomId} />}
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => setShowMembersPanel(!showMembersPanel)}
+            className="border-primary text-primary hover:bg-primary hover:text-white"
+          >
+            <Users className="h-4 w-4 mr-2" />
+            Members
+          </Button>
           <Button size="sm" variant="outline" onClick={shareRoom} className="border-primary text-primary hover:bg-primary hover:text-white">
             <Share2 className="h-4 w-4 mr-2" />
             Share
@@ -903,12 +977,37 @@ const Room = () => {
           </div>
         </div>
 
-        {/* Chat Panel */}
-        <div className="w-80 bg-panel-bg border-l border-border flex flex-col">
-          <div className="h-10 border-b border-border flex items-center px-4">
-            <MessageSquare className="h-4 w-4 mr-2 text-primary" />
-            <span className="text-sm font-medium">Chat</span>
+        {/* Chat Panel or Members Panel */}
+        {showMembersPanel ? (
+          <div className="w-80 bg-panel-bg border-l border-border flex flex-col">
+            <div className="h-10 border-b border-border flex items-center justify-between px-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Room Members</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowMembersPanel(false)}
+                className="h-6 w-6 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {user && roomId && (
+              <RoomMembers
+                roomId={roomId}
+                currentUserId={user.id}
+                userRole={userRole}
+              />
+            )}
           </div>
+        ) : (
+          <div className="w-80 bg-panel-bg border-l border-border flex flex-col">
+            <div className="h-10 border-b border-border flex items-center px-4">
+              <MessageSquare className="h-4 w-4 mr-2 text-primary" />
+              <span className="text-sm font-medium">Chat</span>
+            </div>
           
           <ScrollArea className="flex-1 p-4">
             {messages.length === 0 ? (
@@ -987,6 +1086,7 @@ const Room = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Share Room Dialog */}
