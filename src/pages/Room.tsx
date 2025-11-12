@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import QRCode from "react-qr-code";
+import { PresenceIndicator } from "@/components/PresenceIndicator";
+import { TypingIndicator, useTypingIndicator } from "@/components/TypingIndicator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,7 +88,12 @@ const Room = () => {
   const [output, setOutput] = useState<string>("");
   const [showOutput, setShowOutput] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [messagesChannel, setMessagesChannel] = useState<any>(null);
+  const { typingUsers, handleTyping } = useTypingIndicator(
+    roomId || "",
+    messagesChannel,
+    user?.email || ""
+  );
   const [newFileName, setNewFileName] = useState("");
   const [newFileLanguage, setNewFileLanguage] = useState("typescript");
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
@@ -223,6 +230,8 @@ const Room = () => {
         }
       )
       .subscribe();
+
+    setMessagesChannel(messagesChannel);
 
     return () => {
       supabase.removeChannel(filesChannel);
@@ -414,12 +423,18 @@ const Room = () => {
   const sendMessage = async () => {
     if (!messageInput.trim() || !user) return;
 
+    // Sanitize message to prevent XSS
+    const sanitizedMessage = messageInput
+      .trim()
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
+
     const { error } = await supabase
       .from('messages')
       .insert({
         room_id: roomId,
         sender_id: user.id,
-        text: messageInput,
+        text: sanitizedMessage,
       });
 
     if (error) {
@@ -431,6 +446,15 @@ const Room = () => {
     }
 
     setMessageInput("");
+    
+    // Stop typing indicator
+    if (messagesChannel) {
+      messagesChannel.send({
+        type: "broadcast",
+        event: "stop-typing",
+        payload: { email: user.email },
+      });
+    }
   };
 
   const addReaction = async (messageId: string, emoji: string) => {
@@ -636,10 +660,7 @@ const Room = () => {
           <span className="text-sm text-muted-foreground px-3 py-1 bg-muted rounded-full">Room: {roomId}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-full mr-2">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">1 user</span>
-          </div>
+          {roomId && <PresenceIndicator roomId={roomId} />}
           <Button size="sm" variant="outline" onClick={shareRoom} className="border-primary text-primary hover:bg-primary hover:text-white">
             <Share2 className="h-4 w-4 mr-2" />
             Share
@@ -903,7 +924,7 @@ const Room = () => {
                       {msg.timestamp.toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="text-sm text-foreground mt-1">{msg.text}</p>
+                  <p className="text-sm text-foreground mt-1 whitespace-pre-wrap break-words">{msg.text}</p>
                   <div className="flex items-center gap-1 mt-2">
                     <Button 
                       size="sm" 
@@ -945,6 +966,7 @@ const Room = () => {
                 </div>
               ))
             )}
+            <TypingIndicator typingUsers={typingUsers} />
           </ScrollArea>
 
           <div className="p-4 border-t border-border">
@@ -952,7 +974,10 @@ const Room = () => {
               <Input
                 placeholder="Type a message..."
                 value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
+                onChange={(e) => {
+                  setMessageInput(e.target.value);
+                  handleTyping();
+                }}
                 onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                 className="flex-1 bg-editor-bg border-border"
               />
