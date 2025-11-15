@@ -260,7 +260,10 @@ const Room = () => {
   const loadMessages = async () => {
     const { data, error } = await supabase
       .from('messages')
-      .select('*, profiles!messages_sender_id_fkey(email)')
+      .select(`
+        *,
+        profiles!inner(email)
+      `)
       .eq('room_id', roomId)
       .order('created_at', { ascending: true });
 
