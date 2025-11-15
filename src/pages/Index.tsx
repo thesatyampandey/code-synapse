@@ -3,14 +3,16 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Users, Zap, MessageSquare, ArrowRight, Info, Settings, Sparkles } from "lucide-react";
+import { Code2, Users, Zap, MessageSquare, ArrowRight, Info, Settings, Sparkles, QrCode } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
+import { QRScanner } from "@/components/QRScanner";
 
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [roomId, setRoomId] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
 
   const createRoom = () => {
     const newRoomId = nanoid(10);
@@ -31,6 +33,40 @@ const Index = () => {
       return;
     }
     navigate(`/room/${roomId}`);
+  };
+
+  const handleScanSuccess = (decodedText: string) => {
+    try {
+      // Extract room ID from URL (supports both full URLs and just IDs)
+      const url = new URL(decodedText);
+      const pathParts = url.pathname.split('/');
+      const scannedRoomId = pathParts[pathParts.length - 1];
+      
+      if (scannedRoomId) {
+        toast({
+          title: "Room found!",
+          description: `Joining room: ${scannedRoomId}`,
+        });
+        setShowScanner(false);
+        navigate(`/room/${scannedRoomId}`);
+      }
+    } catch {
+      // If not a valid URL, treat as direct room ID
+      if (decodedText) {
+        toast({
+          title: "Room found!",
+          description: `Joining room: ${decodedText}`,
+        });
+        setShowScanner(false);
+        navigate(`/room/${decodedText}`);
+      } else {
+        toast({
+          title: "Invalid QR Code",
+          description: "Please scan a valid room invite QR code",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (
@@ -134,6 +170,22 @@ const Index = () => {
                   Join Room
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or</span>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setShowScanner(true)}
+                  variant="outline"
+                  className="w-full border-primary/50 hover:border-primary"
+                >
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Scan QR Code
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -177,6 +229,14 @@ const Index = () => {
           Built by Akash Mishra
         </p>
       </footer>
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <QRScanner
+          onScanSuccess={handleScanSuccess}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 };
