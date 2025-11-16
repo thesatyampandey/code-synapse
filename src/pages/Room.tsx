@@ -163,6 +163,11 @@ const Room = () => {
     if (!roomId || !user || loading) return;
     
     const joinRoom = async () => {
+      // Ensure profile exists for current user
+      await supabase
+        .from('profiles')
+        .upsert({ id: user.id, email: user.email! }, { onConflict: 'id' });
+
       // Try to join as editor by default
       const { error } = await supabase
         .from('room_members')
@@ -262,7 +267,7 @@ const Room = () => {
       .from('messages')
       .select(`
         *,
-        profiles!inner(email)
+        profiles!messages_sender_id_fkey(email)
       `)
       .eq('room_id', roomId)
       .order('created_at', { ascending: true });

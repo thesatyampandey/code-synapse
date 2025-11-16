@@ -77,7 +77,9 @@ export const RoomMembers = ({ roomId, currentUserId, userRole }: RoomMembersProp
       .eq("room_id", roomId)
       .order("joined_at", { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      console.error("Error loading members:", error);
+    } else if (data) {
       setMembers(data as any);
     }
   };
