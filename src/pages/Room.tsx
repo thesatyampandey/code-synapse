@@ -164,18 +164,19 @@ const Room = () => {
     
     const joinRoom = async () => {
       // Ensure profile exists for current user
-      await supabase
+      const { error: profileErr } = await supabase
         .from('profiles')
         .upsert({ id: user.id, email: user.email! }, { onConflict: 'id' });
+      if (profileErr) {
+        console.error('Error ensuring profile:', profileErr);
+      }
 
-      // Try to join as editor by default
+      // Try to join as editor by default (no RETURNING to avoid SELECT RLS)
       const { error } = await supabase
         .from('room_members')
-        .insert({ room_id: roomId, user_id: user.id, role: 'editor' })
-        .select()
-        .maybeSingle();
+        .insert({ room_id: roomId, user_id: user.id, role: 'editor' });
       
-      if (error && !error.message.includes('duplicate')) {
+      if (error && !String(error.message || '').toLowerCase().includes('duplicate')) {
         console.error('Error joining room:', error);
       }
 
@@ -263,12 +264,9 @@ const Room = () => {
   }, [roomId, user, loading, toast]);
 
   const loadMessages = async () => {
-    const { data, error } = await supabase
+    const { data: msgs, error } = await supabase
       .from('messages')
-      .select(`
-        *,
-        profiles!messages_sender_id_fkey(email)
-      `)
+      .select('*')
       .eq('room_id', roomId)
       .order('created_at', { ascending: true });
 
@@ -277,17 +275,28 @@ const Room = () => {
       return;
     }
 
-    if (data) {
-      setMessages(
-        data.map((msg: any) => ({
-          id: msg.id,
-          user: msg.profiles?.email || 'Unknown',
-          text: msg.text,
-          timestamp: new Date(msg.created_at),
-          reactions: msg.reactions || {},
-        }))
-      );
+    const senderIds = Array.from(new Set((msgs || []).map((m: any) => m.sender_id)));
+    let profilesMap: Record<string, string> = {};
+    if (senderIds.length) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', senderIds);
+      profilesMap = (profs || []).reduce((acc: any, p: any) => {
+        acc[p.id] = p.email;
+        return acc;
+      }, {} as Record<string, string>);
     }
+
+    setMessages(
+      (msgs || []).map((msg: any) => ({
+        id: msg.id,
+        user: profilesMap[msg.sender_id] || 'Unknown',
+        text: msg.text,
+        timestamp: new Date(msg.created_at),
+        reactions: msg.reactions || {},
+      }))
+    );
   };
 
   const loadFiles = async () => {
