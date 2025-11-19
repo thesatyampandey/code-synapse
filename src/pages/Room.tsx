@@ -93,6 +93,9 @@ const Room = () => {
   const [showOutput, setShowOutput] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [messagesChannel, setMessagesChannel] = useState<any>(null);
+  const [editorChannel, setEditorChannel] = useState<any>(null);
+  const [editorInstance, setEditorInstance] = useState<any>(null);
+  const [cursorPositions, setCursorPositions] = useState<Record<string, { line: number; column: number; email: string }>>({});
   const { typingUsers, handleTyping } = useTypingIndicator(
     roomId || "",
     messagesChannel,
@@ -258,9 +261,46 @@ const Room = () => {
 
     setMessagesChannel(messagesChannel);
 
+    // Setup cursor tracking channel
+    const cursorChannel = supabase
+      .channel(`room-cursors-${roomId}`)
+      .on('presence', { event: 'sync' }, () => {
+        const state = cursorChannel.presenceState();
+        const positions: Record<string, { line: number; column: number; email: string }> = {};
+        
+        Object.keys(state).forEach(key => {
+          const presences = state[key];
+          if (presences.length > 0) {
+            const presence = presences[0] as any;
+            if (presence.user_id !== user.id) {
+              positions[presence.user_id] = {
+                line: presence.line,
+                column: presence.column,
+                email: presence.email,
+              };
+            }
+          }
+        });
+        
+        setCursorPositions(positions);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await cursorChannel.track({
+            user_id: user.id,
+            email: user.email,
+            line: 1,
+            column: 1,
+          });
+        }
+      });
+
+    setEditorChannel(cursorChannel);
+
     return () => {
       supabase.removeChannel(filesChannel);
       supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(cursorChannel);
     };
   }, [roomId, user, loading, toast]);
 
@@ -968,12 +1008,27 @@ const Room = () => {
           </div>
 
           {/* Monaco Editor */}
-          <div className="flex-1">
+          <div className="flex-1 relative">
             <Editor
               height="100%"
               language={activeFile?.language || "typescript"}
               value={activeFile?.content || ""}
               onChange={handleEditorChange}
+              onMount={(editor) => {
+                setEditorInstance(editor);
+                
+                // Track cursor position changes
+                editor.onDidChangeCursorPosition((e) => {
+                  if (editorChannel && user) {
+                    editorChannel.track({
+                      user_id: user.id,
+                      email: user.email,
+                      line: e.position.lineNumber,
+                      column: e.position.column,
+                    });
+                  }
+                });
+              }}
               theme={editorSettings.theme}
               options={{
                 fontSize: editorSettings.fontSize,
@@ -989,6 +1044,22 @@ const Room = () => {
                 padding: { top: 16 },
               }}
             />
+            
+            {/* Render other users' cursors */}
+            {Object.entries(cursorPositions).map(([userId, pos]) => (
+              <div
+                key={userId}
+                className="absolute pointer-events-none z-10 text-xs font-medium px-2 py-1 rounded shadow-lg"
+                style={{
+                  top: `${(pos.line - 1) * (editorSettings.fontSize * 1.5) + 16}px`,
+                  left: `${pos.column * (editorSettings.fontSize * 0.6) + 60}px`,
+                  backgroundColor: `hsl(${(userId.charCodeAt(0) * 137) % 360}, 70%, 50%)`,
+                  color: 'white',
+                }}
+              >
+                {pos.email}
+              </div>
+            ))}
           </div>
         </div>
 
