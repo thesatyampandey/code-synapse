@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +80,7 @@ const Room = () => {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState<File[]>([
@@ -348,26 +349,23 @@ const Room = () => {
 
   const activeFile = files.find(f => f.id === activeFileId);
 
-  const handleEditorChange = async (value: string | undefined) => {
+  const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined && activeFile) {
       setFiles(files.map(f => 
         f.id === activeFileId ? { ...f, content: value } : f
       ));
 
-      // Auto-save to database if enabled
+      // Debounce auto-save to database
       if (editorSettings.autoSave) {
-        setTimeout(async () => {
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+        }
+        saveTimeoutRef.current = setTimeout(async () => {
           await supabase
             .from('files')
             .update({ content: value })
             .eq('id', activeFileId);
         }, editorSettings.autoSaveInterval * 1000);
-      } else {
-        // Manual save
-        await supabase
-          .from('files')
-          .update({ content: value })
-          .eq('id', activeFileId);
       }
     }
   };
