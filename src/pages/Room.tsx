@@ -1025,10 +1025,11 @@ const Room = () => {
               onMount={(editor) => {
                 setEditorInstance(editor);
                 
-                // Track cursor position changes
+                // Track cursor position changes using ref to avoid stale closure
                 editor.onDidChangeCursorPosition((e) => {
-                  if (editorChannel && user) {
-                    editorChannel.track({
+                  const channel = editorChannelRef.current;
+                  if (channel && user) {
+                    channel.track({
                       user_id: user.id,
                       email: user.email,
                       line: e.position.lineNumber,
