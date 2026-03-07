@@ -81,6 +81,7 @@ const Room = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const editorChannelRef = useRef<any>(null);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [files, setFiles] = useState<File[]>([
@@ -296,11 +297,13 @@ const Room = () => {
       });
 
     setEditorChannel(cursorChannel);
+    editorChannelRef.current = cursorChannel;
 
     return () => {
       supabase.removeChannel(filesChannel);
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(cursorChannel);
+      editorChannelRef.current = null;
     };
   }, [roomId, user, loading, toast]);
 
@@ -353,13 +356,18 @@ const Room = () => {
     }
 
     if (data && data.length > 0) {
-      setFiles(data.map(f => ({
+      const newFiles = data.map(f => ({
         id: f.id,
         name: f.name,
         content: f.content,
         language: f.language
-      })));
-      setActiveFileId(data[0].id);
+      }));
+      setFiles(newFiles);
+      // Only set active file if current one doesn't exist in the new list
+      setActiveFileId(prev => {
+        if (newFiles.some(f => f.id === prev)) return prev;
+        return newFiles[0].id;
+      });
     } else {
       // Create initial file if none exist
       const initialFile = {
