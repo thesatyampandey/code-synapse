@@ -1,18 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Users, Zap, MessageSquare, ArrowRight, Info, Settings, Sparkles, QrCode } from "lucide-react";
+import { Code2, Users, Zap, MessageSquare, ArrowRight, Info, Settings, Sparkles, QrCode, LogOut } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 import { QRScanner } from "@/components/QRScanner";
+import { supabase } from "@/integrations/supabase/client";
+import { User as SupabaseUser } from "@supabase/supabase-js";
 
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [roomId, setRoomId] = useState("");
   const [showScanner, setShowScanner] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user || null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const createRoom = () => {
     const newRoomId = nanoid(10);
@@ -84,22 +97,38 @@ const Index = () => {
               Playground
             </Button>
           </Link>
-          <Link to="/profile">
-            <Button variant="ghost" size="sm">
-              Profile
-            </Button>
-          </Link>
-          <Link to="/settings">
-            <Button variant="ghost" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
-          </Link>
-          <Link to="/auth">
-            <Button variant="ghost" size="sm">
-              Sign In
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <Link to="/profile">
+                <Button variant="ghost" size="sm">
+                  Profile
+                </Button>
+              </Link>
+              <Link to="/settings">
+                <Button variant="ghost" size="sm">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  toast({ title: "Signed out", description: "You have been signed out." });
+                }}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <Link to="/auth">
+              <Button variant="ghost" size="sm">
+                Sign In
+              </Button>
+            </Link>
+          )}
           <Link to="/about">
             <Button variant="ghost" size="sm">
               <Info className="h-4 w-4 mr-2" />
