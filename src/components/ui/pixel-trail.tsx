@@ -25,7 +25,7 @@ const PixelTrail: React.FC<PixelTrailProps> = ({
   const trailId = useRef(uuidv4())
 
   const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+    (e: MouseEvent) => {
       if (!containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
       const x = Math.floor((e.clientX - rect.left) / pixelSize)
@@ -41,6 +41,11 @@ const PixelTrail: React.FC<PixelTrailProps> = ({
     [pixelSize]
   )
 
+  React.useEffect(() => {
+    window.addEventListener("mousemove", handleMouseMove)
+    return () => window.removeEventListener("mousemove", handleMouseMove)
+  }, [handleMouseMove])
+
   const columns = useMemo(
     () => Math.ceil(dimensions.width / pixelSize),
     [dimensions.width, pixelSize]
@@ -54,7 +59,6 @@ const PixelTrail: React.FC<PixelTrailProps> = ({
     <div
       ref={containerRef}
       className={cn("absolute inset-0 w-full h-full", className)}
-      onMouseMove={handleMouseMove}
     >
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div key={rowIndex} className="flex">
