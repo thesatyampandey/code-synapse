@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { QRScanner } from "@/components/QRScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser } from "@supabase/supabase-js";
+import { PixelTrail } from "@/components/ui/pixel-trail";
+import { useScreenSize } from "@/components/hooks/use-screen-size";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const Index = () => {
   const [roomId, setRoomId] = useState("");
   const [showScanner, setShowScanner] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
+  const screenSize = useScreenSize();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -29,20 +32,13 @@ const Index = () => {
 
   const createRoom = () => {
     const newRoomId = nanoid(10);
-    toast({
-      title: "Room created!",
-      description: `Room ID: ${newRoomId}`,
-    });
+    toast({ title: "Room created!", description: `Room ID: ${newRoomId}` });
     navigate(`/room/${newRoomId}`);
   };
 
   const joinRoom = () => {
     if (!roomId.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a room ID",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please enter a room ID", variant: "destructive" });
       return;
     }
     navigate(`/room/${roomId}`);
@@ -50,42 +46,39 @@ const Index = () => {
 
   const handleScanSuccess = (decodedText: string) => {
     try {
-      // Extract room ID from URL (supports both full URLs and just IDs)
       const url = new URL(decodedText);
       const pathParts = url.pathname.split('/');
       const scannedRoomId = pathParts[pathParts.length - 1];
-      
       if (scannedRoomId) {
-        toast({
-          title: "Room found!",
-          description: `Joining room: ${scannedRoomId}`,
-        });
+        toast({ title: "Room found!", description: `Joining room: ${scannedRoomId}` });
         setShowScanner(false);
         navigate(`/room/${scannedRoomId}`);
       }
     } catch {
-      // If not a valid URL, treat as direct room ID
       if (decodedText) {
-        toast({
-          title: "Room found!",
-          description: `Joining room: ${decodedText}`,
-        });
+        toast({ title: "Room found!", description: `Joining room: ${decodedText}` });
         setShowScanner(false);
         navigate(`/room/${decodedText}`);
       } else {
-        toast({
-          title: "Invalid QR Code",
-          description: "Please scan a valid room invite QR code",
-          variant: "destructive",
-        });
+        toast({ title: "Invalid QR Code", description: "Please scan a valid room invite QR code", variant: "destructive" });
       }
     }
   };
 
   return (
-    <div className="min-h-screen bg-background dark flex flex-col">
+    <div className="min-h-screen bg-background dark flex flex-col relative overflow-hidden">
+      {/* Pixel Trail Background */}
+      <div className="fixed inset-0 z-0 pointer-events-auto">
+        <PixelTrail
+          pixelSize={screenSize.lessThan("md") ? 24 : 16}
+          fadeDuration={800}
+          delay={0}
+          pixelClassName="bg-primary/30 rounded-full"
+        />
+      </div>
+
       {/* Header */}
-      <header className="h-16 border-b border-border flex items-center justify-between px-6">
+      <header className="h-16 border-b border-border flex items-center justify-between px-6 relative z-10 bg-background/80 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <Code2 className="h-6 w-6 text-primary" />
           <span className="font-semibold text-foreground">CodeSync</span>
@@ -100,9 +93,7 @@ const Index = () => {
           {user ? (
             <>
               <Link to="/profile">
-                <Button variant="ghost" size="sm">
-                  Profile
-                </Button>
+                <Button variant="ghost" size="sm">Profile</Button>
               </Link>
               <Link to="/settings">
                 <Button variant="ghost" size="sm">
@@ -124,9 +115,7 @@ const Index = () => {
             </>
           ) : (
             <Link to="/auth">
-              <Button variant="ghost" size="sm">
-                Sign In
-              </Button>
+              <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
           )}
           <Link to="/about">
@@ -139,12 +128,11 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-16 relative z-10">
         <div className="max-w-4xl w-full text-center space-y-8">
-          {/* Logo & Title */}
           <div className="space-y-4">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-primary shadow-glow">
-              <Code2 className="w-10 h-10 text-white" />
+              <Code2 className="w-10 h-10 text-primary-foreground" />
             </div>
             <h1 className="text-5xl md:text-6xl font-bold text-foreground tracking-tight">
               Code<span className="text-primary">Sync</span>
@@ -156,7 +144,7 @@ const Index = () => {
 
           {/* Action Cards */}
           <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto mt-12">
-            <Card className="bg-card border-border hover:border-primary transition-smooth shadow-panel">
+            <Card className="bg-card/80 backdrop-blur-sm border-border hover:border-primary transition-smooth shadow-panel">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="h-5 w-5 text-primary" />
@@ -165,9 +153,9 @@ const Index = () => {
                 <CardDescription>Start a new collaborative session</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button 
+                <Button
                   onClick={createRoom}
-                  className="w-full bg-gradient-primary hover:opacity-90 text-white font-medium shadow-glow"
+                  className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-medium shadow-glow"
                 >
                   Create New Room
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -175,7 +163,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            <Card className="bg-card border-border hover:border-primary transition-smooth shadow-panel">
+            <Card className="bg-card/80 backdrop-blur-sm border-border hover:border-primary transition-smooth shadow-panel">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-secondary" />
@@ -191,11 +179,7 @@ const Index = () => {
                   onKeyPress={(e) => e.key === 'Enter' && joinRoom()}
                   className="bg-input border-border focus:border-primary"
                 />
-                <Button 
-                  onClick={joinRoom}
-                  variant="secondary"
-                  className="w-full"
-                >
+                <Button onClick={joinRoom} variant="secondary" className="w-full">
                   Join Room
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -226,45 +210,34 @@ const Index = () => {
                 <Code2 className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-semibold text-foreground">Real-time Editing</h3>
-              <p className="text-sm text-muted-foreground">
-                See changes instantly as your team codes together
-              </p>
+              <p className="text-sm text-muted-foreground">See changes instantly as your team codes together</p>
             </div>
             <div className="text-center space-y-2">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-muted">
                 <MessageSquare className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-semibold text-foreground">Built-in Chat</h3>
-              <p className="text-sm text-muted-foreground">
-                Communicate with your team without leaving the editor
-              </p>
+              <p className="text-sm text-muted-foreground">Communicate with your team without leaving the editor</p>
             </div>
             <div className="text-center space-y-2">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-muted">
                 <Zap className="h-6 w-6 text-primary" />
               </div>
               <h3 className="font-semibold text-foreground">Monaco Editor</h3>
-              <p className="text-sm text-muted-foreground">
-                Powered by the same engine as VS Code
-              </p>
+              <p className="text-sm text-muted-foreground">Powered by the same engine as VS Code</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="h-16 border-t border-border flex items-center justify-center">
-        <p className="text-sm text-muted-foreground">
-          Built by Akash Mishra
-        </p>
+      <footer className="h-16 border-t border-border flex items-center justify-center relative z-10 bg-background/80 backdrop-blur-sm">
+        <p className="text-sm text-muted-foreground">Built by Akash Mishra</p>
       </footer>
 
       {/* QR Scanner Modal */}
       {showScanner && (
-        <QRScanner
-          onScanSuccess={handleScanSuccess}
-          onClose={() => setShowScanner(false)}
-        />
+        <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setShowScanner(false)} />
       )}
     </div>
   );
