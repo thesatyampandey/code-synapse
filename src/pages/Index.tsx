@@ -68,8 +68,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background dark flex flex-col relative overflow-hidden">
       {/* Pixel Trail Background */}
-      <div className="fixed inset-0 z-50" style={{ pointerEvents: 'none' }}>
-        <div className="w-full h-full" style={{ pointerEvents: 'auto' }} onClickCapture={(e) => e.stopPropagation()}>
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <PixelTrail
           pixelSize={screenSize.lessThan("md") ? 24 : 16}
           fadeDuration={800}
