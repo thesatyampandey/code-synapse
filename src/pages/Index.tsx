@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Code2, Users, Zap, MessageSquare, ArrowRight, Info, Settings, Sparkles, QrCode, LogOut } from "lucide-react";
+import { Code2, ArrowRight, Info, LogOut, QrCode } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 import { QRScanner } from "@/components/QRScanner";
@@ -66,176 +65,112 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background dark flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
       {/* Pixel Trail Background */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <PixelTrail
           pixelSize={screenSize.lessThan("md") ? 24 : 16}
           fadeDuration={800}
           delay={0}
-          pixelClassName="bg-primary/30 rounded-full"
+          pixelClassName="bg-primary/20 rounded-full"
         />
       </div>
 
-      {/* Header */}
-      <header className="h-16 border-b border-border flex items-center justify-between px-6 relative z-10 bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <Code2 className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-foreground">CodeSync</span>
-        </div>
-        <div className="flex gap-2">
-          <Link to="/playground">
-            <Button variant="ghost" size="sm">
-              <Sparkles className="h-4 w-4 mr-2" />
-              Playground
-            </Button>
-          </Link>
-          {user ? (
-            <>
-              <Link to="/profile">
-                <Button variant="ghost" size="sm">Profile</Button>
-              </Link>
-              <Link to="/settings">
-                <Button variant="ghost" size="sm">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Settings
-                </Button>
-              </Link>
+      {/* Content */}
+      <div className="relative z-10 flex flex-col min-h-screen">
+        {/* Header */}
+        <header className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-2">
+            <Code2 className="h-5 w-5 text-primary" />
+            <span className="font-semibold text-foreground text-sm">CodeSync</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/about">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                <Info className="h-4 w-4 mr-1.5" />
+                About Us
+              </Button>
+            </Link>
+            {user ? (
               <Button
                 variant="ghost"
                 size="sm"
+                className="text-muted-foreground hover:text-foreground"
                 onClick={async () => {
                   await supabase.auth.signOut();
-                  toast({ title: "Signed out", description: "You have been signed out." });
+                  toast({ title: "Signed out" });
                 }}
               >
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-4 w-4 mr-1.5" />
                 Sign Out
               </Button>
-            </>
-          ) : (
-            <Link to="/auth">
-              <Button variant="ghost" size="sm">Sign In</Button>
-            </Link>
-          )}
-          <Link to="/about">
-            <Button variant="ghost" size="sm">
-              <Info className="h-4 w-4 mr-2" />
-              About Us
-            </Button>
-          </Link>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-16 relative z-10">
-        <div className="max-w-4xl w-full text-center space-y-8">
-          <div className="space-y-4">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-primary shadow-glow">
-              <Code2 className="w-10 h-10 text-primary-foreground" />
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold text-foreground tracking-tight">
-              Code<span className="text-primary">Sync</span>
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Real-time collaborative code editor. Write, share, and build together with your team.
-            </p>
-          </div>
-
-          {/* Action Cards */}
-          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto mt-12">
-            <Card className="bg-card/80 backdrop-blur-sm border-border hover:border-primary transition-smooth shadow-panel">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-primary" />
-                  Create Room
-                </CardTitle>
-                <CardDescription>Start a new collaborative session</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  onClick={createRoom}
-                  className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-medium shadow-glow"
-                >
-                  Create New Room
-                  <ArrowRight className="ml-2 h-4 w-4" />
+            ) : (
+              <Link to="/auth">
+                <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  Sign In
                 </Button>
-              </CardContent>
-            </Card>
+              </Link>
+            )}
+          </div>
+        </header>
 
-            <Card className="bg-card/80 backdrop-blur-sm border-border hover:border-primary transition-smooth shadow-panel">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-secondary" />
-                  Join Room
-                </CardTitle>
-                <CardDescription>Enter an existing room ID</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
+        {/* Hero */}
+        <main className="flex-1 flex items-center justify-center px-4">
+          <div className="max-w-lg w-full text-center space-y-10">
+            <div className="space-y-4">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-primary/10 border border-primary/20">
+                <Code2 className="w-7 h-7 text-primary" />
+              </div>
+              <h1 className="text-4xl font-bold text-foreground tracking-tight">
+                Code<span className="text-primary">Sync</span>
+              </h1>
+              <p className="text-muted-foreground text-base leading-relaxed max-w-md mx-auto">
+                Real-time collaborative code editor. Write, share, and build together.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3 max-w-sm mx-auto">
+              <Button
+                onClick={createRoom}
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11"
+              >
+                Create Room
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+
+              <div className="flex gap-2">
                 <Input
                   placeholder="Enter room ID..."
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && joinRoom()}
-                  className="bg-input border-border focus:border-primary"
+                  onKeyPress={(e) => e.key === "Enter" && joinRoom()}
+                  className="bg-input border-border h-11"
                 />
-                <Button onClick={joinRoom} variant="secondary" className="w-full">
-                  Join Room
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <Button onClick={joinRoom} variant="outline" className="h-11 px-5 border-border">
+                  Join
                 </Button>
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">Or</span>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => setShowScanner(true)}
-                  variant="outline"
-                  className="w-full border-primary/50 hover:border-primary"
-                >
-                  <QrCode className="mr-2 h-4 w-4" />
-                  Scan QR Code
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
 
-          {/* Features */}
-          <div className="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto mt-16">
-            <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-muted">
-                <Code2 className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="font-semibold text-foreground">Real-time Editing</h3>
-              <p className="text-sm text-muted-foreground">See changes instantly as your team codes together</p>
-            </div>
-            <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-muted">
-                <MessageSquare className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="font-semibold text-foreground">Built-in Chat</h3>
-              <p className="text-sm text-muted-foreground">Communicate with your team without leaving the editor</p>
-            </div>
-            <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-muted">
-                <Zap className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="font-semibold text-foreground">Monaco Editor</h3>
-              <p className="text-sm text-muted-foreground">Powered by the same engine as VS Code</p>
+              <Button
+                onClick={() => setShowScanner(true)}
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <QrCode className="mr-1.5 h-4 w-4" />
+                Scan QR Code
+              </Button>
             </div>
           </div>
-        </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="py-4 text-center">
+          <p className="text-xs text-muted-foreground">Built by Akash Mishra</p>
+        </footer>
       </div>
 
-      {/* Footer */}
-      <footer className="h-16 border-t border-border flex items-center justify-center relative z-10 bg-background/80 backdrop-blur-sm">
-        <p className="text-sm text-muted-foreground">Built by Akash Mishra</p>
-      </footer>
-
-      {/* QR Scanner Modal */}
       {showScanner && (
         <QRScanner onScanSuccess={handleScanSuccess} onClose={() => setShowScanner(false)} />
       )}
