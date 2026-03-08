@@ -9,6 +9,7 @@ import { QRScanner } from "@/components/QRScanner";
 import { supabase } from "@/integrations/supabase/client";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { InteractiveGlobe } from "@/components/ui/interactive-globe";
+import { ShootingStars } from "@/components/ui/shooting-stars";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -64,6 +65,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+      {/* Shooting Stars Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <ShootingStars minSpeed={15} maxSpeed={35} minDelay={800} maxDelay={3000} starColor="#7c3aed" trailColor="#06b6d4" starWidth={12} starHeight={1} />
+        <ShootingStars minSpeed={10} maxSpeed={25} minDelay={1500} maxDelay={4500} starColor="#06b6d4" trailColor="#7c3aed" starWidth={8} starHeight={1} />
+      </div>
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 relative z-10">
         <div className="flex items-center gap-2">
@@ -155,9 +161,9 @@ const Index = () => {
           <div className="flex-1 flex items-center justify-center max-w-[500px]">
             <InteractiveGlobe
               size={450}
-              dotColor="rgba(100, 180, 255, ALPHA)"
-              arcColor="hsl(199 89% 48% / 0.4)"
-              markerColor="hsl(199 89% 48% / 1)"
+              dotColor="rgba(124, 58, 237, ALPHA)"
+              arcColor="rgba(6, 182, 212, 0.45)"
+              markerColor="rgba(6, 182, 212, 1)"
               autoRotateSpeed={0.002}
             />
           </div>
