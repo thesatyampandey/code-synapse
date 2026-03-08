@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Code2, ArrowRight, Info, LogOut, QrCode } from "lucide-react";
+import { Code2, ArrowRight, Info, LogOut, QrCode, Sparkles, Settings, User } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useToast } from "@/hooks/use-toast";
 import { QRScanner } from "@/components/QRScanner";
