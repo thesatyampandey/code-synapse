@@ -76,7 +76,13 @@ const Index = () => {
           <Code2 className="h-5 w-5 text-primary" />
           <span className="font-semibold text-foreground text-sm">CodeSync</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <Link to="/playground">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              Playground
+            </Button>
+          </Link>
           <Link to="/about">
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               <Info className="h-4 w-4 mr-1.5" />
@@ -84,18 +90,32 @@ const Index = () => {
             </Button>
           </Link>
           {user ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                toast({ title: "Signed out" });
-              }}
-            >
-              <LogOut className="h-4 w-4 mr-1.5" />
-              Sign Out
-            </Button>
+            <>
+              <Link to="/profile">
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                  <User className="h-4 w-4 mr-1.5" />
+                  Profile
+                </Button>
+              </Link>
+              <Link to="/settings">
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                  <Settings className="h-4 w-4 mr-1.5" />
+                  Settings
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  toast({ title: "Signed out" });
+                }}
+              >
+                <LogOut className="h-4 w-4 mr-1.5" />
+                Sign Out
+              </Button>
+            </>
           ) : (
             <Link to="/auth">
               <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
