@@ -161,7 +161,7 @@ const Index = () => {
           <div className="flex-1 flex items-center justify-center max-w-[500px]">
             <InteractiveGlobe
               size={450}
-              dotColor="rgba(124, 58, 237, ALPHA)"
+              dotColor="rgba(6, 182, 212, ALPHA)"
               arcColor="rgba(6, 182, 212, 0.45)"
               markerColor="rgba(6, 182, 212, 1)"
               autoRotateSpeed={0.002}

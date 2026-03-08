@@ -119,8 +119,8 @@ export function InteractiveGlobe({
     ctx.clearRect(0, 0, w, h);
 
     const glowGrad = ctx.createRadialGradient(cx, cy, radius * 0.8, cx, cy, radius * 1.5);
-    glowGrad.addColorStop(0, "rgba(124, 58, 237, 0.04)");
-    glowGrad.addColorStop(1, "rgba(124, 58, 237, 0)");
+    glowGrad.addColorStop(0, "rgba(6, 182, 212, 0.04)");
+    glowGrad.addColorStop(1, "rgba(6, 182, 212, 0)");
     ctx.fillStyle = glowGrad;
     ctx.fillRect(0, 0, w, h);
 
