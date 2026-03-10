@@ -192,7 +192,7 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="py-4 text-center relative z-10">
-        <p className="text-xs text-muted-foreground">Built by Akash Mishra</p>
+        <p className="text-xs text-muted-foreground">Built by Alin and Saidul</p>
       </footer>
 
       {showScanner && (
